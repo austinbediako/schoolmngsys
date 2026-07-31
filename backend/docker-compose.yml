@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: schoolmngsys-postgres
+    environment:
+      POSTGRES_DB: schoolmngsys
+      POSTGRES_USER: schoolmngsys
+      POSTGRES_PASSWORD: schoolmngsys
+    ports:
+      - "5432:5432"
+    volumes:
+      - schoolmngsys-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U schoolmngsys"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: schoolmngsys-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: schoolmngsys
+      DB_USER: schoolmngsys
+      DB_PASSWORD: schoolmngsys
+      JWT_SECRET: replace-with-a-long-random-secret-value-at-least-32-bytes-production
+      SERVER_PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - schoolmngsys-documents-data:/app/data/documents
+
+volumes:
+  schoolmngsys-postgres-data:
+  schoolmngsys-documents-data:

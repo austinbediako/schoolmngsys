@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: SchoolMngSys
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:schoolmngsys}
+    username: ${DB_USER:schoolmngsys}
+    password: ${DB_PASSWORD:schoolmngsys}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-dev-only-secret-change-this-dev-only-secret}
+    expiration-ms: ${JWT_EXPIRATION_MS:900000}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:2592000000}
+  auth:
+    lockout-threshold: ${AUTH_LOCKOUT_THRESHOLD:5}
+    lockout-duration-ms: ${AUTH_LOCKOUT_DURATION_MS:900000}
+    otp-expiration-ms: ${AUTH_OTP_EXPIRATION_MS:600000}
+  storage:
+    documents-dir: ${DOCUMENTS_STORAGE_DIR:./data/documents}
+
+ubs:
+  security:
+    bootstrap-admin:
+      enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}
+      email: ${BOOTSTRAP_ADMIN_EMAIL:admin@ubs.edu.gh}
+      # Left blank on purpose: a blank value means a random one-time password is generated per
+      # boot and printed once to the startup log (see AdminAccountBootstrapper). Only set this
+      # explicitly for a controlled first setup, and disable bootstrap-admin.enabled afterward.
+      password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.drakalabs.schoolmngsys: INFO
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:WARN}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    com.drakalabs.schoolmngsys: DEBUG
+    org.hibernate.SQL: DEBUG
