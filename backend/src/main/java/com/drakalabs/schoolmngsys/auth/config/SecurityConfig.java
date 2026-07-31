@@ -4,6 +4,7 @@ import com.drakalabs.schoolmngsys.auth.service.JwtService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,11 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Stateless JWT security (ADR-004, docs/11 §2-3): no sessions, no CSRF (no cookies to ride on),
- * permission-string authorization via method security — endpoints check permissions, never role
- * names (docs/03 §1).
- */
 @Configuration
 @EnableMethodSecurity
 @EnableConfigurationProperties({JwtProperties.class, AuthProperties.class})
@@ -36,6 +32,7 @@ public class SecurityConfig {
             ProblemAccessDeniedHandler accessDeniedHandler)
             throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
                         authorize ->

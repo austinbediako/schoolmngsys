@@ -15,7 +15,13 @@ public record StudentResponse(
         LocalDate dateOfBirth,
         Gender gender,
         LocalDate admissionDate,
-        StudentStatus status) {
+        StudentStatus status,
+        String nationality,
+        String previousSchool,
+        String residentialAddress,
+        String emergencyContactName,
+        String emergencyContactPhone,
+        String emergencyContactRelationship) {
 
     public static StudentResponse from(StudentView view) {
         return new StudentResponse(
@@ -27,6 +33,12 @@ public record StudentResponse(
                 view.dateOfBirth(),
                 view.gender(),
                 view.admissionDate(),
-                view.status());
+                view.status(),
+                view.nationality(),
+                view.previousSchool(),
+                view.residentialAddress(),
+                view.emergencyContactName(),
+                view.emergencyContactPhone(),
+                view.emergencyContactRelationship());
     }
 }

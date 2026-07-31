@@ -10,8 +10,12 @@ import com.drakalabs.schoolmngsys.auth.repository.AccountRepository;
 import com.drakalabs.schoolmngsys.auth.repository.AccountRoleRepository;
 import com.drakalabs.schoolmngsys.auth.repository.LoginAttemptRepository;
 import com.drakalabs.schoolmngsys.auth.repository.RefreshTokenRepository;
+import com.drakalabs.schoolmngsys.people.service.StaffService;
+import com.drakalabs.schoolmngsys.people.service.StaffView;
+import com.drakalabs.schoolmngsys.shared.security.PersonType;
 import com.drakalabs.schoolmngsys.shared.web.error.NotFoundException;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -29,6 +33,7 @@ public class AuthenticationService {
     private final AccountRoleRepository accountRoleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginAttemptRepository loginAttemptRepository;
+    private final StaffService staffService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final PermissionResolver permissionResolver;
@@ -45,6 +50,7 @@ public class AuthenticationService {
             AccountRoleRepository accountRoleRepository,
             RefreshTokenRepository refreshTokenRepository,
             LoginAttemptRepository loginAttemptRepository,
+            StaffService staffService,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             PermissionResolver permissionResolver,
@@ -57,6 +63,7 @@ public class AuthenticationService {
         this.accountRoleRepository = accountRoleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.loginAttemptRepository = loginAttemptRepository;
+        this.staffService = staffService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.permissionResolver = permissionResolver;
@@ -105,11 +112,22 @@ public class AuthenticationService {
                 .map(ar -> ar.getRole().getName())
                 .collect(Collectors.toUnmodifiableSet());
 
+        String firstName = "System";
+        String lastName = "User";
+
+        if (account.getPersonType() == PersonType.STAFF && account.getPersonId() != null) {
+            Optional<StaffView> staffOpt = staffService.findStaffById(account.getPersonId());
+            if (staffOpt.isPresent()) {
+                firstName = staffOpt.get().firstName();
+                lastName = staffOpt.get().lastName();
+            }
+        }
+
         return new UserMeView(
                 account.getId(),
                 account.getLoginIdentifier(),
-                "Staff",
-                "User",
+                firstName,
+                lastName,
                 account.getEmail(),
                 account.getPhone(),
                 account.getPersonType() != null ? account.getPersonType().name() : "STAFF",

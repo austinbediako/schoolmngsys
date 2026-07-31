@@ -15,7 +15,13 @@ public record StudentView(
         LocalDate dateOfBirth,
         Gender gender,
         LocalDate admissionDate,
-        StudentStatus status) {
+        StudentStatus status,
+        String nationality,
+        String previousSchool,
+        String residentialAddress,
+        String emergencyContactName,
+        String emergencyContactPhone,
+        String emergencyContactRelationship) {
 
     public static StudentView from(Student student) {
         return new StudentView(
@@ -27,6 +33,12 @@ public record StudentView(
                 student.getDateOfBirth(),
                 student.getGender(),
                 student.getAdmissionDate(),
-                student.getStatus());
+                student.getStatus(),
+                student.getNationality(),
+                student.getPreviousSchool(),
+                student.getResidentialAddress(),
+                student.getEmergencyContactName(),
+                student.getEmergencyContactPhone(),
+                student.getEmergencyContactRelationship());
     }
 }

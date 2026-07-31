@@ -10,6 +10,7 @@ import { Icon } from '@/components/icon';
 import { PermissionGate } from '@/components/permission-gate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CredentialPrintoutModal } from '@/components/CredentialPrintoutModal';
+import { resolveGuardianPortalUrl } from '@/lib/portal-links';
 import {
   User,
   FileText,
@@ -258,6 +259,18 @@ function GuardiansTab({ studentId }: { studentId: string }) {
     temporaryPassword: '',
   });
 
+  const [guardianPortalUrl, setGuardianPortalUrl] = React.useState('http://localhost:5174/login');
+
+  React.useEffect(() => {
+    let cancelled = false;
+    resolveGuardianPortalUrl().then((url) => {
+      if (!cancelled) setGuardianPortalUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const { data, isLoading } = useQuery<{ content: LinkedGuardian[] }>({
     queryKey: ['student-guardians', studentId],
     queryFn: () => apiClient(`/students/${studentId}/guardians`),
@@ -472,7 +485,7 @@ function GuardiansTab({ studentId }: { studentId: string }) {
         name={printModalState.name}
         identifier={printModalState.identifier}
         temporaryPassword={printModalState.temporaryPassword}
-        portalUrl={import.meta.env.VITE_GUARDIAN_PORTAL_URL || 'http://localhost:5174/login'}
+        portalUrl={guardianPortalUrl}
       />
     </div>
   );

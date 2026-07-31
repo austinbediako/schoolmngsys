@@ -1,5 +1,6 @@
 package com.drakalabs.schoolmngsys.people.domain;
 
+import com.drakalabs.schoolmngsys.people.service.StudentAdmissionDetails;
 import com.drakalabs.schoolmngsys.shared.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,6 +45,24 @@ public class Student extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private StudentStatus status = StudentStatus.ACTIVE;
+
+    @Column(name = "nationality")
+    private String nationality;
+
+    @Column(name = "previous_school")
+    private String previousSchool;
+
+    @Column(name = "residential_address")
+    private String residentialAddress;
+
+    @Column(name = "emergency_contact_name")
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone")
+    private String emergencyContactPhone;
+
+    @Column(name = "emergency_contact_relationship")
+    private String emergencyContactRelationship;
 
     protected Student() {
     }
@@ -105,10 +124,43 @@ public class Student extends BaseEntity {
         return status;
     }
 
+    public String getNationality() {
+        return nationality;
+    }
+
+    public String getPreviousSchool() {
+        return previousSchool;
+    }
+
+    public String getResidentialAddress() {
+        return residentialAddress;
+    }
+
+    public String getEmergencyContactName() {
+        return emergencyContactName;
+    }
+
+    public String getEmergencyContactPhone() {
+        return emergencyContactPhone;
+    }
+
+    public String getEmergencyContactRelationship() {
+        return emergencyContactRelationship;
+    }
+
     public void updateBio(String firstName, String lastName, String otherNames) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.otherNames = otherNames;
+    }
+
+    public void updateAdmissionDetails(StudentAdmissionDetails details) {
+        this.nationality = details.nationality();
+        this.previousSchool = details.previousSchool();
+        this.residentialAddress = details.residentialAddress();
+        this.emergencyContactName = details.emergencyContactName();
+        this.emergencyContactPhone = details.emergencyContactPhone();
+        this.emergencyContactRelationship = details.emergencyContactRelationship();
     }
 
     /** BR-EN-005: called by {@code enrollment}'s exit workflow, which owns the reason/date. */

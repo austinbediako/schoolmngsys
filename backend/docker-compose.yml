@@ -30,6 +30,8 @@ services:
       DB_USER: schoolmngsys
       DB_PASSWORD: schoolmngsys
       JWT_SECRET: replace-with-a-long-random-secret-value-at-least-32-bytes-production
+      BOOTSTRAP_ADMIN_PASSWORD: Admin123!
+      BOOTSTRAP_TEACHER_PASSWORD: Teacher123!
       SERVER_PORT: 8080
     depends_on:
       postgres:

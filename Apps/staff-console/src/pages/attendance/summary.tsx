@@ -1,37 +1,37 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import { PageHeader } from '@/components/page-header';
-import { StatusBadge } from '@/components/status-badge';
 import { Link } from 'wouter';
-import { CalendarCheck, Calendar, Users, CheckCircle2, XCircle, Clock, ArrowRight, Sparkles } from 'lucide-react';
+import { CalendarCheck, Calendar, Users, CheckCircle2, XCircle, Clock, ArrowRight, BookOpen, AlertCircle } from 'lucide-react';
+import { Class } from '@/types';
 
 export default function AttendanceSummary() {
   const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0]);
 
-  // Mock class attendance summary records
-  const classRecords = [
-    { classId: 'NUR-1', name: 'Nursery 1', total: 15, present: 14, absent: 1, late: 0, rate: 93.3 },
-    { classId: 'NUR-2', name: 'Nursery 2', total: 18, present: 17, absent: 0, late: 1, rate: 94.4 },
-    { classId: 'KG-1', name: 'Kindergarten 1', total: 20, present: 19, absent: 1, late: 0, rate: 95.0 },
-    { classId: 'KG-2', name: 'Kindergarten 2', total: 22, present: 21, absent: 1, late: 0, rate: 95.5 },
-    { classId: 'PRI-1', name: 'Primary 1', total: 25, present: 24, absent: 0, late: 1, rate: 96.0 },
-    { classId: 'PRI-2', name: 'Primary 2', total: 24, present: 22, absent: 2, late: 0, rate: 91.7 },
-    { classId: 'PRI-3', name: 'Primary 3', total: 26, present: 25, absent: 1, late: 0, rate: 96.2 },
-    { classId: 'JHS-1', name: 'Junior High 1', total: 30, present: 28, absent: 1, late: 1, rate: 93.3 },
-    { classId: 'JHS-2', name: 'Junior High 2', total: 28, present: 27, absent: 1, late: 0, rate: 96.4 },
-    { classId: 'JHS-3', name: 'Junior High 3', total: 32, present: 31, absent: 0, late: 1, rate: 96.8 },
-  ];
+  const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
+    queryKey: ['dashboard-head'],
+    queryFn: () => apiClient('/dashboard/head'),
+  });
 
-  const totalStudents = classRecords.reduce((acc, c) => acc + c.total, 0);
-  const totalPresent = classRecords.reduce((acc, c) => acc + c.present, 0);
-  const totalAbsent = classRecords.reduce((acc, c) => acc + c.absent, 0);
-  const totalLate = classRecords.reduce((acc, c) => acc + c.late, 0);
-  const overallRate = ((totalPresent / totalStudents) * 100).toFixed(1);
+  const { data: classesData, isLoading: isClassesLoading } = useQuery<any>({
+    queryKey: ['classes'],
+    queryFn: () => apiClient('/classes'),
+  });
+
+  const overallRate = dashboardData?.attendance?.attendanceRatePercentage ?? 0;
+  const totalPresent = dashboardData?.attendance?.presentCount ?? 0;
+  const totalAbsent = dashboardData?.attendance?.absentCount ?? 0;
+  const totalLate = dashboardData?.attendance?.lateCount ?? 0;
+  const totalRecords = dashboardData?.attendance?.totalRecords ?? 0;
+
+  const classesList: Class[] = Array.isArray(classesData?.content) ? classesData.content : [];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
       <PageHeader
         title="Daily Attendance Intelligence"
-        description="Monitor daily roll call records, absence trends, and class breakdown across all levels."
+        description="Monitor daily roll call records, absence trends, and class breakdown across all configured levels."
         breadcrumbs={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Attendance Summary' },
@@ -48,37 +48,41 @@ export default function AttendanceSummary() {
         </div>
       </PageHeader>
 
-      {/* Top Metric Cards */}
+      {/* Top Metric Cards - Live Data */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs card-glow-emerald">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
           <div className="flex items-start justify-between">
             <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-              High Attendance
+              Overall Rate
             </span>
           </div>
           <div className="mt-4 space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overall Attendance</span>
-            <div className="font-display text-3xl font-extrabold text-slate-900">{overallRate}%</div>
-            <p className="text-xs text-slate-400 font-medium">{totalPresent} of {totalStudents} present today</p>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Attendance Rate</span>
+            <div className="font-display text-3xl font-extrabold text-slate-900">
+              {isDashboardLoading ? '-' : `${overallRate}%`}
+            </div>
+            <p className="text-xs text-slate-400 font-medium">{totalPresent} of {totalRecords} recorded present</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs card-glow-indigo">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
           <div className="flex items-start justify-between">
             <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600">
               <Users className="w-6 h-6" />
             </div>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-              Enrolled
+              Present
             </span>
           </div>
           <div className="mt-4 space-y-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Present</span>
-            <div className="font-display text-3xl font-extrabold text-slate-900">{totalPresent}</div>
-            <p className="text-xs text-slate-400 font-medium">In active sessions</p>
+            <div className="font-display text-3xl font-extrabold text-slate-900">
+              {isDashboardLoading ? '-' : totalPresent}
+            </div>
+            <p className="text-xs text-slate-400 font-medium">In active class sessions</p>
           </div>
         </div>
 
@@ -93,8 +97,10 @@ export default function AttendanceSummary() {
           </div>
           <div className="mt-4 space-y-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Absent</span>
-            <div className="font-display text-3xl font-extrabold text-slate-900">{totalAbsent}</div>
-            <p className="text-xs text-slate-400 font-medium">Unexcused / Reported</p>
+            <div className="font-display text-3xl font-extrabold text-slate-900">
+              {isDashboardLoading ? '-' : totalAbsent}
+            </div>
+            <p className="text-xs text-slate-400 font-medium">Recorded unexcused</p>
           </div>
         </div>
 
@@ -109,8 +115,10 @@ export default function AttendanceSummary() {
           </div>
           <div className="mt-4 space-y-1">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Late</span>
-            <div className="font-display text-3xl font-extrabold text-slate-900">{totalLate}</div>
-            <p className="text-xs text-slate-400 font-medium">Arrival after 8:00 AM</p>
+            <div className="font-display text-3xl font-extrabold text-slate-900">
+              {isDashboardLoading ? '-' : totalLate}
+            </div>
+            <p className="text-xs text-slate-400 font-medium">Arrival after start time</p>
           </div>
         </div>
       </div>
@@ -119,62 +127,73 @@ export default function AttendanceSummary() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="p-5 border-b border-slate-200/80 flex items-center justify-between">
           <div>
-            <h2 className="font-display text-base font-bold text-slate-900">Class Roll Call Breakdown</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Select a class to take or review student attendance</p>
+            <h2 className="font-display text-base font-bold text-slate-900">Class Roll Call Directory</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Select an active class level to mark or review daily register</p>
           </div>
+
+          <Link
+            href="/attendance/mark"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition-all"
+          >
+            <CalendarCheck className="w-4 h-4 text-emerald-400" />
+            <span>Mark Register</span>
+          </Link>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/80">
-              <tr>
-                <th className="px-5 py-3.5">Class Name</th>
-                <th className="px-5 py-3.5">Enrolled</th>
-                <th className="px-5 py-3.5">Present</th>
-                <th className="px-5 py-3.5">Absent</th>
-                <th className="px-5 py-3.5">Late</th>
-                <th className="px-5 py-3.5">Rate %</th>
-                <th className="px-5 py-3.5 text-right">Roll Call Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {classRecords.map((c) => (
-                <tr key={c.classId} className="hover:bg-indigo-50/30 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <span className="font-bold text-slate-900 text-sm">{c.name}</span>
-                  </td>
-
-                  <td className="px-5 py-3.5 text-slate-600 font-semibold">{c.total}</td>
-                  <td className="px-5 py-3.5 text-emerald-600 font-bold">{c.present}</td>
-                  <td className="px-5 py-3.5 text-rose-600 font-bold">{c.absent}</td>
-                  <td className="px-5 py-3.5 text-amber-600 font-bold">{c.late}</td>
-
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: `${c.rate}%` }}
-                        />
-                      </div>
-                      <span className="font-bold text-slate-900">{c.rate}%</span>
-                    </div>
-                  </td>
-
-                  <td className="px-5 py-3.5 text-right">
-                    <Link
-                      href={`/attendance/roll-call?classId=${c.classId}`}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors"
-                    >
-                      <span>Take Roll Call</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </td>
+        {isClassesLoading ? (
+          <div className="p-8 text-center text-xs text-slate-500 font-medium">Loading configured classes...</div>
+        ) : classesList.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/80">
+                <tr>
+                  <th className="px-5 py-3.5">Class Level</th>
+                  <th className="px-5 py-3.5">Stream</th>
+                  <th className="px-5 py-3.5">Code</th>
+                  <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {classesList.map((c) => (
+                  <tr key={c.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-5 py-3.5 font-bold text-slate-900 text-sm">
+                      {c.level}
+                    </td>
+
+                    <td className="px-5 py-3.5 text-slate-600 font-semibold">{c.stream || '-'}</td>
+                    <td className="px-5 py-3.5 text-slate-400 font-mono text-[11px]">{c.code || '-'}</td>
+
+                    <td className="px-5 py-3.5 text-right">
+                      <Link
+                        href={`/attendance/mark?classId=${c.id}`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors"
+                      >
+                        <span>Mark Roll Call</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-12 text-center space-y-3">
+            <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+            <div>
+              <p className="text-sm font-bold text-slate-900">No Classes Configured</p>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                Please set up your school classes first in the Academic Setup section before taking attendance.
+              </p>
+            </div>
+            <Link
+              href="/academic/classes"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold text-xs shadow-xs hover:bg-indigo-700 transition-all"
+            >
+              <span>Set Up Classes</span>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

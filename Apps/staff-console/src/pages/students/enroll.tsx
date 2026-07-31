@@ -20,7 +20,7 @@ export default function EnrollStudent() {
 
   const { data: classes } = useQuery<any>({
     queryKey: ['classes'],
-    queryFn: () => apiClient('/academic/classes')
+    queryFn: () => apiClient('/classes')
   });
 
   const onSubmit = async (e: React.FormEvent) => {

@@ -49,6 +49,21 @@ public class StudentService {
             Gender gender,
             LocalDate admissionDate,
             List<GuardianLinkSpec> initialGuardianLinks) {
+        return createStudent(firstName, lastName, otherNames, dateOfBirth, gender, admissionDate, initialGuardianLinks, null);
+    }
+
+    /** Overload accepting the WP-11 admission-record extension fields (all optional — pass {@code null} to skip them). */
+    @Audited(action = "STUDENT_CREATED", entityType = "Student")
+    @Transactional
+    public StudentView createStudent(
+            String firstName,
+            String lastName,
+            String otherNames,
+            LocalDate dateOfBirth,
+            Gender gender,
+            LocalDate admissionDate,
+            List<GuardianLinkSpec> initialGuardianLinks,
+            StudentAdmissionDetails admissionDetails) {
         if (initialGuardianLinks.isEmpty() || initialGuardianLinks.stream().noneMatch(GuardianLinkSpec::primaryContact)) {
             throw new BusinessRuleViolationException(
                     "BR-EN-004", "A student needs at least one linked guardian, with at least one marked primary contact");
@@ -56,6 +71,9 @@ public class StudentService {
 
         String studentNumber = studentNumberGenerator.generate(admissionDate.getYear());
         Student student = new Student(studentNumber, firstName, lastName, otherNames, dateOfBirth, gender, admissionDate);
+        if (admissionDetails != null) {
+            student.updateAdmissionDetails(admissionDetails);
+        }
         studentRepository.save(student);
 
         for (GuardianLinkSpec spec : initialGuardianLinks) {
@@ -74,6 +92,14 @@ public class StudentService {
         }
 
         return StudentView.from(student);
+    }
+
+    @Audited(action = "STUDENT_UPDATED", entityType = "Student")
+    @Transactional
+    public StudentView updateAdmissionDetails(UUID studentId, StudentAdmissionDetails admissionDetails) {
+        Student student = getStudent(studentId);
+        student.updateAdmissionDetails(admissionDetails);
+        return StudentView.from(studentRepository.save(student));
     }
 
     @Audited(action = "STUDENT_UPDATED", entityType = "Student")

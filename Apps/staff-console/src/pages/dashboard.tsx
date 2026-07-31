@@ -10,20 +10,42 @@ import {
   Clock,
   Plus,
   BookOpen,
-  CheckCircle2,
   BellRing,
   ChevronRight,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['dashboard-summary'],
-    queryFn: () => apiClient('/dashboard/summary'),
+  const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
+    queryKey: ['dashboard-head'],
+    queryFn: () => apiClient('/dashboard/head'),
   });
+
+  const { data: announcementsData } = useQuery({
+    queryKey: ['announcements'],
+    queryFn: () => apiClient('/announcements'),
+  });
+
+  const { data: academicYearsData } = useQuery({
+    queryKey: ['academic-years'],
+    queryFn: () => apiClient('/academic-years'),
+  });
+
+  const activeYearName = dashboardData?.activeAcademicYearName ?? 'No Active Year';
+  const totalEnrollment = dashboardData?.enrollment?.totalActiveEnrollments ?? 0;
+  const attendanceRate = dashboardData?.attendance?.attendanceRatePercentage ?? 0;
+  const presentCount = dashboardData?.attendance?.presentCount ?? 0;
+  const totalAttendanceRecords = dashboardData?.attendance?.totalRecords ?? 0;
+  const feeCollectionRate = dashboardData?.finance?.collectionPercentage ?? 0;
+  const totalCollected = dashboardData?.finance?.totalCollectedAmount ?? 0;
+  const totalResults = dashboardData?.resultsDistribution?.totalResultsCount ?? 0;
+
+  const announcements = Array.isArray(announcementsData) ? announcementsData : [];
+  const academicYears = Array.isArray(academicYearsData?.content) ? academicYearsData.content : [];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -35,15 +57,15 @@ export default function Dashboard() {
               Welcome back, {user?.firstName || 'Staff'}
             </h1>
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              2024-25 Term 1 Active
+              {activeYearName}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Unibridge Basic School Management Console. Here is your daily operational summary.
+            University Basic School Management Console. Operational summary driven live by the system.
           </p>
         </div>
 
-        {/* Solid Professional Action Buttons */}
+        {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <Link
             href="/attendance/mark"
@@ -63,42 +85,42 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Metric Cards Grid */}
+      {/* Metric Cards Grid - Live Backend Data Only */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Total Enrollment"
-          value={isLoading ? '-' : data?.enrollmentCount ?? 45}
-          subtitle="+4.2% vs last term"
-          badgeText="Active Students"
+          title="Total Active Enrollment"
+          value={isDashboardLoading ? '-' : totalEnrollment}
+          subtitle={`${dashboardData?.enrollment?.maleCount ?? 0} Male • ${dashboardData?.enrollment?.femaleCount ?? 0} Female`}
+          badgeText="Live Students"
           badgeColor="bg-slate-100 text-slate-700 border-slate-200"
           icon={<Users className="w-5 h-5 text-indigo-600" />}
         />
 
         <MetricCard
-          title="Today's Attendance"
-          value={isLoading ? '-' : `${data?.attendancePercentage ?? 94.2}%`}
-          subtitle="94 of 100 present today"
-          badgeText="High Rate"
+          title="Attendance Rate"
+          value={isDashboardLoading ? '-' : `${attendanceRate}%`}
+          subtitle={`${presentCount} of ${totalAttendanceRecords} present recorded`}
+          badgeText="Today"
           badgeColor="bg-emerald-50 text-emerald-700 border-emerald-200"
           icon={<CalendarCheck className="w-5 h-5 text-emerald-600" />}
         />
 
         <MetricCard
-          title="Fee Collection"
-          value={isLoading ? '-' : `${data?.feeCollectionPercentage ?? 68.5}%`}
-          subtitle="Term 1 collection rate"
-          badgeText="On Track"
+          title="Fee Collection Rate"
+          value={isDashboardLoading ? '-' : `${feeCollectionRate}%`}
+          subtitle={`GHS ${totalCollected.toLocaleString()} collected`}
+          badgeText="Finances"
           badgeColor="bg-amber-50 text-amber-700 border-amber-200"
           icon={<CreditCard className="w-5 h-5 text-amber-600" />}
         />
 
         <MetricCard
-          title="Pending Approvals"
-          value={isLoading ? '-' : data?.pendingApprovals ?? 3}
-          subtitle="SBA & Result reviews"
-          badgeText="Action Needed"
-          badgeColor="bg-rose-50 text-rose-700 border-rose-200"
-          icon={<Clock className="w-5 h-5 text-rose-600" />}
+          title="Recorded Results"
+          value={isDashboardLoading ? '-' : totalResults}
+          subtitle="Total SBA & exam marks"
+          badgeText="Assessments"
+          badgeColor="bg-blue-50 text-blue-700 border-blue-200"
+          icon={<BookOpen className="w-5 h-5 text-blue-600" />}
         />
       </div>
 
@@ -139,9 +161,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Operational Logs & Academic Calendar Deadlines */}
+      {/* Operational Logs & System Announcements */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Activity Timeline */}
+        {/* Left 2 Cols: Live System Announcements & Bulletins */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
@@ -149,72 +171,78 @@ export default function Dashboard() {
                 <BellRing className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-display font-bold text-slate-900 text-sm">Recent Activity Logs</h3>
-                <p className="text-xs text-slate-500">Live system events across departments</p>
+                <h3 className="font-display font-bold text-slate-900 text-sm">System Announcements</h3>
+                <p className="text-xs text-slate-500">Official bulletins & broadcast communications</p>
               </div>
             </div>
+
+            <Link
+              href="/communication/announcements"
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+            >
+              Manage
+            </Link>
           </div>
 
           <div className="space-y-3">
-            <ActivityItem
-              title="Term 1 SBA Assessment Scores Uploaded"
-              description="JHS 1 Mathematics & Integrated Science scores recorded by Subject Teacher"
-              time="10 mins ago"
-              icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-            />
-
-            <ActivityItem
-              title="Fee Payment Receipt #GHS-8492 Issued"
-              description="GHS 450.00 payment confirmed for Student Kwabena Mensah (Primary 4)"
-              time="45 mins ago"
-              icon={<CreditCard className="w-4 h-4 text-blue-600" />}
-            />
-
-            <ActivityItem
-              title="New Student Enrollment Completed"
-              description="Akosua Ampofo registered into Nursery 2 • Guardian linked"
-              time="2 hours ago"
-              icon={<Users className="w-4 h-4 text-indigo-600" />}
-            />
+            {announcements.length > 0 ? (
+              announcements.slice(0, 5).map((ann: any) => (
+                <ActivityItem
+                  key={ann.id}
+                  title={ann.title}
+                  description={ann.content || ann.targetAudience}
+                  time={ann.createdAt ? new Date(ann.createdAt).toLocaleDateString() : 'Recent'}
+                  icon={<BellRing className="w-4 h-4 text-indigo-600" />}
+                />
+              ))
+            ) : (
+              <div className="py-8 text-center space-y-2">
+                <FileText className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="text-xs text-slate-500 font-medium">No announcements published yet.</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right 1 Col: Academic Calendar & Deadlines (Replaces System Info) */}
+        {/* Right 1 Col: Configured Academic Structure */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-slate-700" />
-                <h3 className="font-display font-bold text-slate-900 text-sm">Upcoming Key Dates</h3>
+                <h3 className="font-display font-bold text-slate-900 text-sm">Academic Structure</h3>
               </div>
-              <span className="text-[11px] font-semibold text-slate-500">Term 1</span>
+              <Link
+                href="/academic/years"
+                className="text-[11px] font-semibold text-indigo-600 hover:underline"
+              >
+                Setup
+              </Link>
             </div>
 
-            <div className="space-y-3 pt-1">
-              <DeadlineItem
-                title="Mid-Term SBA Score Submission"
-                date="Aug 15, 2026"
-                status="Upcoming"
-                urgent={true}
-              />
-              <DeadlineItem
-                title="Parent-Teacher Association (PTA)"
-                date="Aug 22, 2026"
-                status="Scheduled"
-                urgent={false}
-              />
-              <DeadlineItem
-                title="End-of-Term Examinations"
-                date="Sept 05, 2026"
-                status="Scheduled"
-                urgent={false}
-              />
-              <DeadlineItem
-                title="Term 1 Report Card Approvals"
-                date="Sept 18, 2026"
-                status="Pending"
-                urgent={false}
-              />
+            <div className="space-y-2.5 pt-1">
+              {academicYears.length > 0 ? (
+                academicYears.slice(0, 4).map((year: any) => (
+                  <DeadlineItem
+                    key={year.id}
+                    title={year.name}
+                    date={`${year.startDate || ''} to ${year.endDate || ''}`}
+                    status={year.status || 'ACTIVE'}
+                    urgent={year.status === 'ACTIVE'}
+                  />
+                ))
+              ) : (
+                <div className="py-6 text-center space-y-2">
+                  <AlertCircle className="w-6 h-6 mx-auto text-amber-500" />
+                  <p className="text-xs text-slate-500 font-medium">No academic years configured.</p>
+                  <Link
+                    href="/academic/years"
+                    className="inline-block text-xs font-bold text-indigo-600 hover:underline"
+                  >
+                    Create Academic Year
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -306,7 +334,7 @@ function ActivityItem({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+    <div className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100/60">
       <div className="p-1.5 rounded-lg bg-slate-100 shrink-0 mt-0.5">
         {icon}
       </div>
@@ -339,7 +367,7 @@ function DeadlineItem({
         <div className="text-[11px] text-slate-500 font-medium mt-0.5">{date}</div>
       </div>
       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-        urgent ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-200 text-slate-700'
+        urgent ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200 text-slate-700'
       }`}>
         {status}
       </span>

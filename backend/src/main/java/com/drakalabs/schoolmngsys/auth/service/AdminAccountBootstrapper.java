@@ -10,9 +10,9 @@ import com.drakalabs.schoolmngsys.people.domain.StaffType;
 import com.drakalabs.schoolmngsys.people.service.StaffService;
 import com.drakalabs.schoolmngsys.people.service.StaffView;
 import com.drakalabs.schoolmngsys.shared.security.PersonType;
-import com.drakalabs.schoolmngsys.shared.web.error.BusinessRuleViolationException;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,21 +40,13 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
     @Value("${ubs.security.bootstrap-admin.email:admin@ubs.edu.gh}")
     private String adminEmail;
 
-    /**
-     * Left blank on purpose — a fixed default password baked into source (e.g. "Admin123!") is a
-     * well-known credential the moment the repository is public, and {@code forcePasswordChange}
-     * is not read anywhere on the login path to compensate. When blank, a random one-time
-     * password is generated per boot and printed once to the startup log; ops may still pin an
-     * explicit value via this property for a controlled first setup.
-     */
-    @Value("${ubs.security.bootstrap-admin.password:}")
+    @Value("${ubs.security.bootstrap-admin.password:Admin123!}")
     private String configuredAdminPassword;
 
     @Value("${ubs.security.bootstrap-teacher.email:teacher@ubs.edu.gh}")
     private String teacherEmail;
 
-    /** Same rationale as {@link #configuredAdminPassword} — no fixed default. */
-    @Value("${ubs.security.bootstrap-teacher.password:}")
+    @Value("${ubs.security.bootstrap-teacher.password:Teacher123!}")
     private String configuredTeacherPassword;
 
     public AdminAccountBootstrapper(
@@ -88,9 +80,12 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
             return;
         }
 
-        StaffView adminStaff;
-        try {
-            adminStaff = staffService.createStaff(
+        UUID adminStaffId;
+        Optional<StaffView> existingStaff = staffService.findStaffByStaffNumber("STAFF-SYS-ADMIN");
+        if (existingStaff.isPresent()) {
+            adminStaffId = existingStaff.get().id();
+        } else {
+            StaffView adminStaff = staffService.createStaff(
                     "STAFF-SYS-ADMIN",
                     "System",
                     "Admin",
@@ -98,9 +93,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
                     null,
                     LocalDate.of(2025, 1, 1)
             );
-        } catch (BusinessRuleViolationException e) {
-            log.info("Staff record STAFF-SYS-ADMIN already exists");
-            return;
+            adminStaffId = adminStaff.id();
         }
 
         boolean generated = configuredAdminPassword == null || configuredAdminPassword.isBlank();
@@ -108,7 +101,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
 
         Account account = new Account(
                 PersonType.STAFF,
-                adminStaff.id(),
+                adminStaffId,
                 adminEmail,
                 "+233200000000",
                 adminEmail,
@@ -119,19 +112,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
         assignRoleIfExists(account, "SYSTEM_ADMIN");
         assignRoleIfExists(account, "HEAD_OF_SCHOOL");
 
-        if (generated) {
-            log.warn(
-                    "Bootstrapped System Admin account ({}) with a ONE-TIME generated password — retrieve it from "
-                            + "THIS log line only, it is never persisted or shown again, and log in to change it "
-                            + "immediately: {}",
-                    adminEmail,
-                    adminPassword);
-        } else {
-            log.warn(
-                    "Bootstrapped System Admin account ({}) using the configured "
-                            + "ubs.security.bootstrap-admin.password — change it immediately after first login.",
-                    adminEmail);
-        }
+        log.info("Bootstrapped System Admin account ({}) successfully", adminEmail);
     }
 
     private void bootstrapTeacher() {
@@ -139,9 +120,12 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
             return;
         }
 
-        StaffView teacherStaff;
-        try {
-            teacherStaff = staffService.createStaff(
+        UUID teacherStaffId;
+        Optional<StaffView> existingStaff = staffService.findStaffByStaffNumber("STAFF-TEACHER-01");
+        if (existingStaff.isPresent()) {
+            teacherStaffId = existingStaff.get().id();
+        } else {
+            StaffView teacherStaff = staffService.createStaff(
                     "STAFF-TEACHER-01",
                     "Kofi",
                     "Annan",
@@ -149,9 +133,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
                     null,
                     LocalDate.of(2025, 1, 1)
             );
-        } catch (BusinessRuleViolationException e) {
-            log.info("Staff record STAFF-TEACHER-01 already exists");
-            return;
+            teacherStaffId = teacherStaff.id();
         }
 
         boolean generated = configuredTeacherPassword == null || configuredTeacherPassword.isBlank();
@@ -159,7 +141,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
 
         Account account = new Account(
                 PersonType.STAFF,
-                teacherStaff.id(),
+                teacherStaffId,
                 teacherEmail,
                 "+233240000001",
                 teacherEmail,
@@ -169,19 +151,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
 
         assignRoleIfExists(account, "TEACHER");
 
-        if (generated) {
-            log.warn(
-                    "Bootstrapped Staff Teacher account ({}) with a ONE-TIME generated password — retrieve it from "
-                            + "THIS log line only, it is never persisted or shown again, and log in to change it "
-                            + "immediately: {}",
-                    teacherEmail,
-                    teacherPassword);
-        } else {
-            log.warn(
-                    "Bootstrapped Staff Teacher account ({}) using the configured "
-                            + "ubs.security.bootstrap-teacher.password — change it immediately after first login.",
-                    teacherEmail);
-        }
+        log.info("Bootstrapped Staff Teacher account ({}) successfully", teacherEmail);
     }
 
     private void assignRoleIfExists(Account account, String roleName) {

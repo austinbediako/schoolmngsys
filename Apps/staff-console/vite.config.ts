@@ -2,13 +2,15 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { devPortRegistryPlugin } from '../dev-port-registry';
 
-const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8080';
+const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://localhost:8080';
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    devPortRegistryPlugin('staff-console'),
   ],
   resolve: {
     alias: {
@@ -22,6 +24,7 @@ export default defineConfig({
       '/api': {
         target: backendTarget,
         changeOrigin: true,
+        secure: false,
       },
     },
   },
@@ -32,6 +35,7 @@ export default defineConfig({
       '/api': {
         target: backendTarget,
         changeOrigin: true,
+        secure: false,
       },
     },
   },

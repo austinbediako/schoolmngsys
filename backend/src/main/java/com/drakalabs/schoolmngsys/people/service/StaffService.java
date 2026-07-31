@@ -9,6 +9,7 @@ import com.drakalabs.schoolmngsys.shared.audit.Audited;
 import com.drakalabs.schoolmngsys.shared.web.error.BusinessRuleViolationException;
 import com.drakalabs.schoolmngsys.shared.web.error.NotFoundException;
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,16 @@ public class StaffService {
     public StaffService(StaffRepository staffRepository, StaffQualificationRepository staffQualificationRepository) {
         this.staffRepository = staffRepository;
         this.staffQualificationRepository = staffQualificationRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<StaffView> findStaffByStaffNumber(String staffNumber) {
+        return staffRepository.findByStaffNumberAndArchivedAtIsNull(staffNumber).map(StaffView::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<StaffView> findStaffById(UUID staffId) {
+        return staffRepository.findById(staffId).map(StaffView::from);
     }
 
     @Audited(action = "STAFF_CREATED", entityType = "Staff")
