@@ -28,6 +28,8 @@ pnpm-debug.log*
 # Secrets, Environment & Keys
 .env
 .env.local
+.env.logins
+*.logins
 .env.*.local
 *.pem
 *.key

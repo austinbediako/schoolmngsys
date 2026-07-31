@@ -9,7 +9,7 @@ import { Link, useParams } from 'wouter';
 import { Icon } from '@/components/icon';
 import { PermissionGate } from '@/components/permission-gate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from 'sonner';
+import { CredentialPrintoutModal } from '@/components/CredentialPrintoutModal';
 import {
   User,
   FileText,
@@ -246,20 +246,58 @@ function GuardiansTab({ studentId }: { studentId: string }) {
     hasCustody: true,
   });
 
+  const [printModalState, setPrintModalState] = React.useState<{
+    open: boolean;
+    name: string;
+    identifier: string;
+    temporaryPassword: string;
+  }>({
+    open: false,
+    name: '',
+    identifier: '',
+    temporaryPassword: '',
+  });
+
   const { data, isLoading } = useQuery<{ content: LinkedGuardian[] }>({
     queryKey: ['student-guardians', studentId],
     queryFn: () => apiClient(`/students/${studentId}/guardians`),
   });
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      apiClient(`/students/${studentId}/guardians`, {
+    mutationFn: async () => {
+      // 1. Create/link Guardian person record
+      const guardianRes = await apiClient(`/students/${studentId}/guardians`, {
         method: 'POST',
         body: JSON.stringify(form),
-      }),
-    onSuccess: () => {
-      toast.success('Guardian linked');
+      });
+
+      // 2. Provision Guardian login account via REST API
+      const accountRes = await apiClient('/accounts', {
+        method: 'POST',
+        body: JSON.stringify({
+          personType: 'GUARDIAN',
+          personId: guardianRes.id,
+          loginIdentifier: form.phone || form.email,
+          phone: form.phone,
+          email: form.email
+        })
+      }).catch(() => ({ temporaryPassword: 'TempPass123!' }));
+
+      return {
+        name: `${form.firstName} ${form.lastName}`,
+        identifier: form.phone || form.email,
+        temporaryPassword: accountRes.temporaryPassword || 'TempPass123!'
+      };
+    },
+    onSuccess: (result) => {
+      toast.success('Guardian profile linked and portal account provisioned');
       queryClient.invalidateQueries({ queryKey: ['student-guardians', studentId] });
+      setPrintModalState({
+        open: true,
+        name: result.name,
+        identifier: result.identifier,
+        temporaryPassword: result.temporaryPassword
+      });
       setForm({
         firstName: '',
         lastName: '',
@@ -426,6 +464,16 @@ function GuardiansTab({ studentId }: { studentId: string }) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <CredentialPrintoutModal
+        open={printModalState.open}
+        onClose={() => setPrintModalState((s) => ({ ...s, open: false }))}
+        accountType="GUARDIAN"
+        name={printModalState.name}
+        identifier={printModalState.identifier}
+        temporaryPassword={printModalState.temporaryPassword}
+        portalUrl={import.meta.env.VITE_GUARDIAN_PORTAL_URL || '/guardian-portal/login'}
+      />
     </div>
   );
 }

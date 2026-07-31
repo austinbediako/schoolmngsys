@@ -7,10 +7,14 @@ import com.drakalabs.schoolmngsys.auth.domain.AccountStatus;
 import com.drakalabs.schoolmngsys.auth.domain.LoginAttempt;
 import com.drakalabs.schoolmngsys.auth.domain.RefreshToken;
 import com.drakalabs.schoolmngsys.auth.repository.AccountRepository;
+import com.drakalabs.schoolmngsys.auth.repository.AccountRoleRepository;
 import com.drakalabs.schoolmngsys.auth.repository.LoginAttemptRepository;
 import com.drakalabs.schoolmngsys.auth.repository.RefreshTokenRepository;
+import com.drakalabs.schoolmngsys.shared.web.error.NotFoundException;
 import java.time.Instant;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -18,21 +22,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Login, refresh rotation, and logout (FR-AUTH-01/04/05, ADR-004). Failure cases throw Spring
- * Security {@link org.springframework.security.core.AuthenticationException} subtypes so they
- * flow straight into the WP-0 {@code GlobalExceptionHandler}'s existing auth-required mapping —
- * no new problem-type wiring needed here.
- *
- * <p>Denied-attempt bookkeeping (lockout counter, ledger) goes through {@link AuthAttemptRecorder}
- * in its own transaction: every denial path here ends by throwing an unchecked
- * {@code AuthenticationException}, which would otherwise roll back whatever this method just
- * wrote before the exception propagates.
- */
 @Service
 public class AuthenticationService {
 
     private final AccountRepository accountRepository;
+    private final AccountRoleRepository accountRoleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginAttemptRepository loginAttemptRepository;
     private final PasswordEncoder passwordEncoder;
@@ -48,6 +42,7 @@ public class AuthenticationService {
 
     public AuthenticationService(
             AccountRepository accountRepository,
+            AccountRoleRepository accountRoleRepository,
             RefreshTokenRepository refreshTokenRepository,
             LoginAttemptRepository loginAttemptRepository,
             PasswordEncoder passwordEncoder,
@@ -59,6 +54,7 @@ public class AuthenticationService {
             AuthProperties authProperties,
             JwtProperties jwtProperties) {
         this.accountRepository = accountRepository;
+        this.accountRoleRepository = accountRoleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.loginAttemptRepository = loginAttemptRepository;
         this.passwordEncoder = passwordEncoder;
@@ -97,6 +93,29 @@ public class AuthenticationService {
         loginAttemptRepository.save(new LoginAttempt(account.getId(), identifier, true, ip));
 
         return issueTokenPair(account);
+    }
+
+    @Transactional(readOnly = true)
+    public UserMeView getMe(UUID accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new NotFoundException("No account for ID " + accountId));
+
+        Set<String> permissions = permissionResolver.resolve(account);
+        Set<String> roles = accountRoleRepository.findByAccountIdAndArchivedAtIsNull(account.getId()).stream()
+                .map(ar -> ar.getRole().getName())
+                .collect(Collectors.toUnmodifiableSet());
+
+        return new UserMeView(
+                account.getId(),
+                account.getLoginIdentifier(),
+                "Staff",
+                "User",
+                account.getEmail(),
+                account.getPhone(),
+                account.getPersonType() != null ? account.getPersonType().name() : "STAFF",
+                roles,
+                permissions
+        );
     }
 
     @Transactional

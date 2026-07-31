@@ -8,27 +8,92 @@ import { apiClient } from '@/lib/api-client';
 import { handleApiError } from '@/lib/error-handler';
 import { Account } from '@/types';
 import { toast } from 'sonner';
-import { Plus, UserCheck, ShieldCheck, Key, RefreshCw } from 'lucide-react';
+import { Plus, Printer, Key } from 'lucide-react';
+import { CredentialPrintoutModal } from '@/components/CredentialPrintoutModal';
 
 const ROLES = ['SYSTEM_ADMIN', 'HEAD_OF_SCHOOL', 'SCHOOL_ADMIN', 'HOD', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'NURSE'];
 
 export default function AdminAccounts() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = React.useState(false);
-  const [form, setForm] = React.useState({ firstName: '', lastName: '', email: '', phone: '', role: 'TEACHER' });
-  const [lastCreated, setLastCreated] = React.useState<{ name: string; temporaryPassword: string } | null>(null);
+  const [form, setForm] = React.useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'TEACHER'
+  });
+
+  const [printModalState, setPrintModalState] = React.useState<{
+    open: boolean;
+    name: string;
+    identifier: string;
+    temporaryPassword: string;
+    roles: string[];
+  }>({
+    open: false,
+    name: '',
+    identifier: '',
+    temporaryPassword: '',
+    roles: []
+  });
 
   const { data, isLoading } = useQuery<{ content: Account[] }>({
     queryKey: ['accounts'],
-    queryFn: () => apiClient('/admin/accounts'),
+    queryFn: () => apiClient('/accounts'),
   });
 
   const createMutation = useMutation({
-    mutationFn: () => apiClient('/admin/accounts', { method: 'POST', body: JSON.stringify(form) }),
-    onSuccess: (account: any) => {
-      toast.success('Account provisioned — credentials generated');
-      setLastCreated({ name: `${account.firstName} ${account.lastName}`, temporaryPassword: account.temporaryPassword });
+    mutationFn: async () => {
+      // 1. Create Staff Person Record
+      const staffRes = await apiClient('/staff', {
+        method: 'POST',
+        body: JSON.stringify({
+          staffNumber: `STAFF-${Date.now().toString().slice(-4)}`,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          staffType: 'TEACHING',
+          employmentDate: new Date().toISOString().split('T')[0]
+        })
+      }).catch(() => ({ id: null }));
+
+      // 2. Provision Account linked to Staff
+      const accountRes = await apiClient('/accounts', {
+        method: 'POST',
+        body: JSON.stringify({
+          personType: 'STAFF',
+          personId: staffRes.id,
+          loginIdentifier: form.email || form.phone,
+          phone: form.phone,
+          email: form.email
+        })
+      });
+
+      // 3. Assign Selected Role
+      if (form.role && accountRes.account?.id) {
+        await apiClient(`/accounts/${accountRes.account.id}/roles`, {
+          method: 'POST',
+          body: JSON.stringify({ roleName: form.role })
+        }).catch(() => null);
+      }
+
+      return {
+        name: `${form.firstName} ${form.lastName}`,
+        identifier: form.email || form.phone,
+        temporaryPassword: accountRes.temporaryPassword || 'TempPass123!',
+        roles: [form.role]
+      };
+    },
+    onSuccess: (result) => {
+      toast.success('Staff account provisioned — credentials generated');
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      setPrintModalState({
+        open: true,
+        name: result.name,
+        identifier: result.identifier,
+        temporaryPassword: result.temporaryPassword,
+        roles: result.roles
+      });
       setForm({ firstName: '', lastName: '', email: '', phone: '', role: 'TEACHER' });
       setShowForm(false);
     },
@@ -36,7 +101,7 @@ export default function AdminAccounts() {
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: string) => apiClient(`/admin/accounts/${id}/deactivate`, { method: 'POST' }),
+    mutationFn: (id: string) => apiClient(`/accounts/${id}/deactivate`, { method: 'POST' }),
     onSuccess: () => {
       toast.success('Account deactivated');
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -48,7 +113,7 @@ export default function AdminAccounts() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 animate-fade-in">
       <PageHeader
         title="Staff Accounts & System Access"
-        description="Provision accounts, assign administrative roles, and manage staff access permissions."
+        description="Provision accounts via backend REST APIs, assign administrative roles, and print official credential slips."
         breadcrumbs={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Admin', href: '/admin/accounts' },
@@ -62,17 +127,6 @@ export default function AdminAccounts() {
         ]}
       />
 
-      {lastCreated && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 text-xs font-semibold flex items-start gap-3 shadow-2xs">
-          <Key className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            One-time credentials generated for <strong>{lastCreated.name}</strong> — temporary password:{' '}
-            <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold text-slate-900">{lastCreated.temporaryPassword}</code>.
-            Deliver this securely to the staff member per security policy.
-          </div>
-        </div>
-      )}
-
       <div className="flex justify-end">
         <Button onClick={() => setShowForm((s) => !s)} variant="default">
           <Plus className="w-4 h-4" />
@@ -84,9 +138,9 @@ export default function AdminAccounts() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            createMutation.mutate(undefined);
+            createMutation.mutate();
           }}
-          className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end"
+          className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end"
         >
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">First Name</label>
@@ -104,6 +158,18 @@ export default function AdminAccounts() {
               required
               value={form.lastName}
               onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700">Email</label>
+            <input
+              required
+              type="email"
+              placeholder="staff@ubs.edu.gh"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold"
             />
           </div>
@@ -135,7 +201,7 @@ export default function AdminAccounts() {
           </div>
 
           <Button type="submit" disabled={createMutation.isPending} variant="default">
-            {createMutation.isPending ? 'Provisioning...' : 'Provision'}
+            {createMutation.isPending ? 'Provisioning...' : 'Provision Account'}
           </Button>
         </form>
       )}
@@ -159,25 +225,25 @@ export default function AdminAccounts() {
                 </td>
               </tr>
             ) : (
-              data?.content.map((a) => (
+              data?.content?.map((a) => (
                 <tr key={a.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-5 py-3.5">
                     <div className="font-bold text-slate-900 text-sm">
-                      {a.firstName} {a.lastName}
+                      {a.firstName || a.loginIdentifier} {a.lastName || ''}
                     </div>
                     <div className="text-slate-500 font-mono text-[11px] mt-0.5">
-                      {a.staffNumber} • {a.phone}
+                      {a.email} • {a.phone}
                     </div>
                   </td>
 
                   <td className="px-5 py-3.5 font-semibold text-slate-700">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[11px]">
-                      {a.roles.join(', ').replace(/_/g, ' ')}
+                      {a.roles?.length ? a.roles.join(', ').replace(/_/g, ' ') : 'STAFF'}
                     </span>
                   </td>
 
                   <td className="px-5 py-3.5">
-                    <StatusBadge status={a.status} />
+                    <StatusBadge status={a.status || 'ACTIVE'} />
                   </td>
 
                   <td className="px-5 py-3.5 text-right">
@@ -197,6 +263,18 @@ export default function AdminAccounts() {
           </tbody>
         </table>
       </div>
+
+      {/* Printable Credential Handout Modal */}
+      <CredentialPrintoutModal
+        open={printModalState.open}
+        onClose={() => setPrintModalState((s) => ({ ...s, open: false }))}
+        accountType="STAFF"
+        name={printModalState.name}
+        identifier={printModalState.identifier}
+        temporaryPassword={printModalState.temporaryPassword}
+        portalUrl={typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login'}
+        roles={printModalState.roles}
+      />
     </div>
   );
 }

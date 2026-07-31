@@ -20,9 +20,7 @@ export const LoginPage: React.FC<{ onLoginSuccess: () => void }> = ({ onLoginSuc
       localStorage.setItem('ubs_guardian_token', data.accessToken);
       onLoginSuccess();
     } catch (err: any) {
-      // Demo preview fallback
-      localStorage.setItem('ubs_guardian_token', 'demo-guardian-jwt-token');
-      onLoginSuccess();
+      setError(err.message || 'Login failed. Invalid phone number, email or password.');
     } finally {
       setLoading(false);
     }

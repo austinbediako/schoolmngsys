@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { handleApiError } from '@/lib/error-handler';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, GraduationCap, UserCheck, KeyRound, X, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { ArrowRight, KeyRound, X, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
@@ -13,10 +13,9 @@ export default function Login() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { isSubmitting },
   } = useForm({
-    defaultValues: { username: '', password: '' },
+    defaultValues: { identifier: '', password: '' },
   });
 
   // Forgot Password Modal State
@@ -27,16 +26,14 @@ export default function Login() {
 
   const onSubmit = async (data: any) => {
     try {
-      await login(data);
+      await login({
+        identifier: data.identifier,
+        password: data.password
+      });
       setLocation('/dashboard');
     } catch (e: any) {
       handleApiError(e);
     }
-  };
-
-  const fillQuickDemo = (role: 'admin' | 'teacher') => {
-    setValue('username', role);
-    setValue('password', role);
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {
@@ -111,41 +108,16 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Quick Test Access Buttons */}
-          <div className="bg-white p-4 border border-slate-200/90 rounded-2xl shadow-2xs space-y-2.5">
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Quick Test Access</span>
-              <span className="text-slate-400 font-mono text-[10px]">Click to pre-fill</span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => fillQuickDemo('admin')}
-                className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-semibold border border-slate-200 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-slate-600" />
-                <span>System Admin</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickDemo('teacher')}
-                className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-semibold border border-slate-200 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <GraduationCap className="w-3.5 h-3.5 text-slate-600" />
-                <span>Staff Teacher</span>
-              </button>
-            </div>
-          </div>
-
           {/* Main Form Inputs */}
           <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">Username / Staff ID / Phone</label>
+              <label className="text-xs font-semibold text-slate-700">Email / Staff ID / Phone</label>
               <input
-                id="username"
+                id="identifier"
+                type="text"
                 required
-                placeholder="e.g. admin or staff number"
-                {...register('username', { required: true })}
+                placeholder="e.g. admin@ubs.edu.gh"
+                {...register('identifier', { required: true })}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
               />
             </div>
@@ -197,7 +169,7 @@ export default function Login() {
               ) : (
                 <>
                   <span>Sign In to Portal</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-400" />
+                  <ArrowRight className="w-4 h-4 text-amber-400" />
                 </>
               )}
             </Button>

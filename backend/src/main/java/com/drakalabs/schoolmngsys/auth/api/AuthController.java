@@ -2,9 +2,13 @@ package com.drakalabs.schoolmngsys.auth.api;
 
 import com.drakalabs.schoolmngsys.auth.service.AuthenticationService;
 import com.drakalabs.schoolmngsys.auth.service.PasswordResetService;
+import com.drakalabs.schoolmngsys.shared.security.AuthenticatedAccount;
+import com.drakalabs.schoolmngsys.shared.security.CurrentAccountProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,16 +20,28 @@ public class AuthController {
 
     private final AuthenticationService authenticationService;
     private final PasswordResetService passwordResetService;
+    private final CurrentAccountProvider currentAccountProvider;
 
-    public AuthController(AuthenticationService authenticationService, PasswordResetService passwordResetService) {
+    public AuthController(
+            AuthenticationService authenticationService,
+            PasswordResetService passwordResetService,
+            CurrentAccountProvider currentAccountProvider) {
         this.authenticationService = authenticationService;
         this.passwordResetService = passwordResetService;
+        this.currentAccountProvider = currentAccountProvider;
     }
 
     @PostMapping("/login")
     public TokenResponse login(@RequestBody @Valid LoginRequest request, HttpServletRequest httpRequest) {
         return TokenResponse.from(
                 authenticationService.login(request.identifier(), request.password(), httpRequest.getRemoteAddr()));
+    }
+
+    @GetMapping("/me")
+    public UserMeResponse me() {
+        AuthenticatedAccount account = currentAccountProvider.current()
+                .orElseThrow(() -> new BadCredentialsException("Unauthenticated"));
+        return UserMeResponse.from(authenticationService.getMe(account.accountId()));
     }
 
     @PostMapping("/refresh")
