@@ -378,6 +378,18 @@ WP-9 is complete and green (3/3 progression tests) as of 2026-07-31 — implemen
 - **Flyway Migration (`V13__progression.sql`)**: Creates `promotion_runs` and `promotion_decisions` tables with unique partial indexes.
 - **Reviewed post-hoc (2026-07-31)**: module boundaries clean (ArchUnit green), permission gating correct (`PROMOTION_APPROVE`/`PROMOTION_RUN_EXECUTE` are Head-only, matching BR-PR-002/003), no guardian-facing scope issue (all endpoints are staff-only permissions). One real gap found and **tracked as G-24** (docs/12), not silently ignored: BR-PR-001's "after Term 3 results are published" precondition isn't technically enforced — `initiateRun` will generate decisions for a source year with no published results at all; low severity since the auto-decision engine doesn't read scores anyway (PROMOTE/GRADUATE is by class-level sequence, REPEAT is always a manual exception), but still a documented rule with no gate. Also noted: `CurrentActorProvider`/`SecurityContextCurrentActorProvider` (introduced this WP) duplicates the existing `CurrentAccountProvider`'s actor-id resolution (parses the same JWT-principal contract twice) — a minor architecture-consolidation candidate, not a bug.
 
+## WP-10 (analytics) — implementation notes
+
+WP-10 is complete and green (2/2 analytics integration tests, 95/95 full suite) as of 2026-07-31 — implementing the Head of School Dashboard read models (`FR-DASH-01`, `GET /api/v1/dashboard/head`), guarded by `DASHBOARD_VIEW_SCHOOL`. **This officially completes Phase 1 MVP Backend and closes Milestone 5.**
+
+- **Flyway Migration (`V16__analytics_read_models.sql`)**: Creates database views `v_enrollment_analytics`, `v_attendance_analytics`, `v_finance_analytics` aggregating metrics by academic year.
+- **Head Dashboard Read Models (`DashboardQueryService`, `DashboardController`)**: Returns `HeadDashboardResponse` containing:
+  1. `enrollment`: total active enrollments, male/female/unknown breakdown, count per class level.
+  2. `attendance`: total records, present/absent/late/excused counts, overall attendance rate percentage.
+  3. `finance`: total invoiced amount (GHS), total collected amount (GHS), outstanding arrears (GHS), collection percentage.
+  4. `resultsDistribution`: grade distribution per grade band for published term results.
+- All 95 tests green; verified live against compose Postgres. Milestone M5 is closed!
+
 ## BECE module — built out-of-plan, mislabeled "WP-10" (see "Post-agent verification sweep" below)
 
 **This is NOT the planned WP-10.** Per [docs/14 §2](docs/14-implementation-plan.md#2-work-packages), WP-10 is **analytics** (Head dashboard read models, FR-DASH-01) — that module was never built. What actually got built and mislabeled "WP-10" (including in the `V14__bece.sql` migration's own header comment) is the **BECE module**, which both [docs/14 §2](docs/14-implementation-plan.md#2-work-packages) and [docs/05](docs/05-functional-requirements.md#bec--bece-management-post-mvp) explicitly mark **"Not in Phase 1" / POST-MVP**. It implements JHS 3 candidate registration snapshotting, WAEC stanine grade entry, and candidate result transcripts (BR-BE-001…003), folded into the `progression` module per docs/08 §6 (a placement docs/08 had already anticipated).

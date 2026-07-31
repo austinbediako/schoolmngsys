@@ -35,6 +35,12 @@ public class AcademicYearQueryService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Optional<AcademicYearView> findActiveYear() {
+        return academicYearRepository.findByStatusAndArchivedAtIsNull(com.drakalabs.schoolmngsys.academics.domain.AcademicYearStatus.ACTIVE)
+                .map(AcademicYearView::from);
+    }
+
+    @Transactional(readOnly = true)
     public TermView getTerm(UUID termId) {
         return termRepository.findById(termId).map(TermView::from).orElseThrow(() -> new NotFoundException("No such term: " + termId));
     }
