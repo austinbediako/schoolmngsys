@@ -1,0 +1,147 @@
+Build a frontend-only web application called "UBS-LMIS Staff Console" for a Ghanaian basic school
+(Nursery to JHS 3) management system. This is a CLIENT ONLY — do not implement business logic,
+validation rules, or data computation client-side. All of that lives in a separate backend REST API
+that already exists (or will be stubbed). Your job is UI, routing, state, and API integration.
+
+## Stack
+- Next.js (App Router) + TypeScript
+- Tailwind CSS + shadcn/ui components
+- TanStack Query (React Query) for all server-state/data fetching
+- react-hook-form + zod for form shape validation only (client-side UX hints, NOT business rules —
+  the server is the source of truth and returns RFC 7807 errors that must be displayed verbatim)
+- Axios or fetch wrapper with interceptor for JWT refresh
+
+## API contract (backend, real or to be mocked with MSW/json-server until available)
+- Base path: /api/v1, versioned, JSON, camelCase fields
+- Auth: POST /auth/login (username/staffNumber/phone + password) returns { accessToken, refreshToken };
+  POST /auth/refresh rotates tokens; POST /auth/logout. Access token is short-lived — build a silent
+  refresh flow (refresh on 401, retry original request once, else force logout to /login).
+- Pagination envelope on all list endpoints: { content: [], page, size, totalElements, totalPages }.
+  Query params: ?page=0&size=20&sort=lastName,asc. Cap page size at 100.
+- Errors are RFC 7807 `application/problem+json`:
+  { type, title, status, detail, instance, traceId, errors?: [{field, message}] }
+  Build ONE shared error-handling layer that:
+    - Maps field-level `errors[]` onto the correct react-hook-form field errors
+    - Shows `detail` as a toast/banner for non-field errors
+    - Special-cases problem type "rule-violation" by showing the human-readable detail plus a small
+      "Rule: {ruleId}" badge (e.g. BR-EN-001) — these are business rule rejections, show them clearly,
+      never as generic "something went wrong"
+    - Handles 401 (session expired → redirect to login), 403 (forbidden → "you don't have permission"
+      page, not a crash), 409 (conflict/version mismatch → "this record changed, reload and retry"),
+      429 (rate-limited → retry-after messaging)
+- Optimistic concurrency: editable resources carry a `version` field. Send it back as `If-Match` or in
+  the body per what the API expects; on 409 show a merge/reload prompt, never silently overwrite.
+- Money fields are decimal strings in GHS (e.g. "1250.00") — format for display with GH₵ symbol,
+  never do float math client-side, treat as display-only strings plus what you send back verbatim.
+- Idempotency-Key header required on financial/bulk mutation calls (payment capture, billing run,
+  promotion run, bulk score entry) — generate a UUID client-side per submit attempt, reuse it on retry
+  of the SAME attempt, generate a new one for a genuinely new attempt.
+- Long-running operations (billing run, promotion run, result computation) return 202 + a job resource
+  at /jobs/{id} — build a generic "job in progress" poller/toast pattern (poll every 2s, show progress,
+  redirect/refresh on completion).
+
+## Roles & navigation (RBAC-driven UI — permissions come from the JWT/me endpoint, never hardcode
+role names in the UI; check permission strings like STUDENT_CREATE, RESULT_PUBLISH, etc.)
+Fetch the current user's permissions once after login (e.g. GET /auth/me or decode JWT claims) and
+gate nav items, buttons, and routes on permission strings, not role names. A user can hold multiple
+roles simultaneously (e.g. Teacher + HOD) — the nav must reflect the UNION of what they can do.
+
+Roles this console serves: SYSTEM_ADMIN, HEAD_OF_SCHOOL, SCHOOL_ADMIN, HOD, TEACHER, ACCOUNTANT,
+LIBRARIAN, NURSE.
+
+## Screens to build
+
+### Shell
+- Login page (username/staffNumber/phone + password, "forgot password" → OTP-to-phone-or-email reset
+  flow, forced password change banner if account requires it)
+- App shell: left sidebar nav (collapsible), top bar with school name, current academic year/term
+  selector (a read-only context badge — most data is scoped to the "active" year/term), user menu
+  (profile, logout)
+- 403/Forbidden page, 404 page, generic error boundary page
+- A11y target: WCAG 2.1 AA — keyboard nav, focus states, proper labels/aria on all forms and tables
+
+### Dashboard (role-aware landing page)
+- Head of School: school-wide KPI tiles (enrollment count, attendance % today, fee collection %,
+  pending approvals count) + quick links to pending result approvals / promotion decisions
+- Teacher: "my classes today" — quick link to mark attendance, quick link to enter scores for open
+  components, list of my subject offerings
+- Accountant: today's collections, arrears summary tile, pending billing runs
+- Others: simplified relevant tiles per their scope
+
+### Academic Structure (SYSTEM_ADMIN/HEAD/SCHOOL_ADMIN mostly, others read-only)
+- Academic Years & Terms: list, create/edit (dates, status transitions: PLANNED → ACTIVE → CLOSED),
+  a calendar view of school days/holidays
+- Classes: list (level + stream + capacity), create/edit, assign a Class Teacher per year
+- Subject offerings per class: list/manage, assign subject teachers
+
+### Students (People module)
+- Student list: searchable/filterable table (name, student number, class, status, guardian phone),
+  paginated, column sort
+- Student detail page: tabs for Bio-data, Documents (upload/view attachments), Guardians (linked
+  guardians with relationship type + contact/billing/custody flags), Enrollment History (read-only
+  timeline — never editable, history is append-only), Attendance summary, Results summary, Finance
+  summary
+- Create/edit student form (bio-data + photo upload + document attachments)
+- Guardian management: create/link guardians to students, set relationship + flags
+- Enroll student into a class for a year (a form, not part of edit — it's a distinct workflow)
+- Record exit: transfer-out / withdrawal with reason + date; generate/download a transfer summary
+
+### Attendance (Teacher primary, others read/approve)
+- "Mark today's register" — single screen, one row per enrolled student, quick-tap Present/Absent/
+  Late/Excused buttons (large tap targets, this gets used daily, optimize for speed), single bulk
+  submit call, disabled on non-school days with a clear message
+- Attendance correction flow (past days) — requires reason, visibly flagged as an audited correction
+- Attendance summaries: per student/class/term views, exportable
+
+### Results / Assessment
+- Assessment components setup per subject/term (weights must sum per category — show a running
+  total so users see when it's off, but let the SERVER be the final validator)
+- Bulk score entry: spreadsheet-like grid per component (student rows x max-score columns), inline
+  validation hints, missing-score flags highlighted, autosave-on-blur or explicit "save" per row —
+  your choice, but make bulk entry fast for a teacher entering 30 students' scores
+- Term Results: list with status pipeline DRAFT → SUBMITTED → HOD_APPROVED → PUBLISHED, an approval
+  action UI gated by permission (RESULT_PUBLISH etc.), a diff/audit view for post-publication revisions
+- Report card preview (data-driven: results + attendance + remarks + positions) with a print-friendly
+  view (actual PDF generation may be backend or a print stylesheet — build the print-friendly HTML view)
+
+### Promotion
+- Year-end promotion run: trigger, see proposed PROMOTE list, flag REPEAT exceptions with a required
+  justification field, approval step, uses the job-polling pattern above (this is a bulk/async op)
+
+### Finance
+- Fee schedules: list/create per level/term/year, approval workflow
+- Billing run trigger (async job pattern) → generates invoices
+- Payments: record a payment (cash/bank/cheque/MoMo reference), immutable receipt display (once
+  created, receipts are read-only — no edit button, ever)
+- Adjustments: student-specific fee adjustments with approval gate
+- Reports: collection by period/class/fee-item, arrears aging, daily cash book — table + simple charts
+
+### Communication
+- Announcements: create/target by scope (school-wide/dept/class), list, read-receipts if available
+- Message templates management (SYSTEM_ADMIN/SCHOOL_ADMIN)
+
+### Admin
+- Accounts & Roles (SYSTEM_ADMIN only): list accounts, create (provisioned only — no self-registration
+  anywhere in this UI), assign/revoke roles, deactivate account (never delete)
+- Audit log viewer (SYSTEM_ADMIN, read-only for HEAD): filterable by actor/entity/date
+
+## Design
+- Clean, data-dense admin UI (this is a daily-use tool for staff, not a marketing site) — think
+  Linear/Notion-style density, not a SaaS landing page. Neutral palette, one accent color.
+- Tables: sticky headers, sortable columns, pagination controls matching the API envelope, empty
+  states with a clear call-to-action, loading skeletons (not spinners) for tables/cards
+- All destructive/approval actions get a confirmation dialog stating the consequence
+- Every list/detail page handles: loading, empty, error, and forbidden states explicitly — no blank
+  screens
+
+## What NOT to build
+- No business rule computation client-side (result scoring, position ranking, fee allocation) — these
+  come from the API. The UI only displays and submits.
+- No self-registration/signup flow anywhere — accounts are provisioned by SYSTEM_ADMIN only.
+- No hardcoded role-name checks — always check permission strings.
+- Don't invent endpoints not listed above — if unsure of a shape, build against a documented mock and
+  leave a clearly marked TODO comment with what's expected, rather than guessing a wrong contract.
+
+Start by scaffolding the app shell, auth flow (with a mock login returning a fake JWT if no backend is
+connected yet), and the Students module end-to-end (list → detail → create/edit) as the reference
+pattern for every other module, then replicate the pattern across Attendance, Results, Finance.
