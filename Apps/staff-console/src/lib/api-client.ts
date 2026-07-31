@@ -1,5 +1,7 @@
 let tokens: { accessToken: string; refreshToken: string } | null = null;
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
 export const setTokens = (t: { accessToken: string; refreshToken: string } | null) => {
   tokens = t;
   if (t) {
@@ -24,17 +26,22 @@ export const getTokens = () => {
 export async function apiClient(url: string, options: RequestInit = {}) {
   const t = getTokens();
   const headers = new Headers(options.headers);
-  headers.set('Content-Type', 'application/json');
+
+  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   if (t) {
     headers.set('Authorization', `Bearer ${t.accessToken}`);
   }
 
-  let response = await fetch(`/api/v1${url}`, { ...options, headers });
+  const endpointUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  let response = await fetch(endpointUrl, { ...options, headers });
 
-  if (response.status === 401 && t) {
+  if (response.status === 401 && t?.refreshToken) {
     // Attempt refresh
     try {
-      const refreshRes = await fetch(`/api/v1/auth/refresh`, {
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: t.refreshToken })
@@ -43,7 +50,7 @@ export async function apiClient(url: string, options: RequestInit = {}) {
         const newTokens = await refreshRes.json();
         setTokens(newTokens);
         headers.set('Authorization', `Bearer ${newTokens.accessToken}`);
-        response = await fetch(`/api/v1${url}`, { ...options, headers });
+        response = await fetch(endpointUrl, { ...options, headers });
       } else {
         setTokens(null);
         window.location.href = '/login';
@@ -57,14 +64,21 @@ export async function apiClient(url: string, options: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
+    const contentType = response.headers.get('content-type') || '';
+    const errorData = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : null;
     throw errorData || { status: response.status, title: 'Network Error' };
   }
 
-  // Some endpoints return empty body on 204
   if (response.status === 204) {
     return null;
   }
 
-  return response.json();
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  return response.text();
 }

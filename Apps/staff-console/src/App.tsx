@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { Route, Switch, Router as WouterRouter, Redirect } from 'wouter';
 import { AuthProvider } from '@/contexts/auth-context';
-import { setupMockApi } from '@/lib/mock-api';
 import AppShell from '@/components/layout/app-shell';
 import Login from '@/pages/login';
 import Dashboard from '@/pages/dashboard';
@@ -32,9 +31,6 @@ import AuditLogPage from '@/pages/admin/audit-log';
 import Announcements from '@/pages/communication/announcements';
 import MessageTemplates from '@/pages/communication/templates';
 import NotFound from '@/pages/not-found';
-
-// Initialise mock fetch interceptor before any rendering
-setupMockApi();
 
 const queryClient = new QueryClient({
   defaultOptions: {
