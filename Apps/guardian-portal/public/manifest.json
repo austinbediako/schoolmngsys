@@ -1,0 +1,24 @@
+{
+  "name": "UBS-LMIS Guardian Portal",
+  "short_name": "UBS Guardian",
+  "description": "University Basic School Legon Management Information System - Guardian Portal",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
