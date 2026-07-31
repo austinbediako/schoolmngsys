@@ -40,6 +40,10 @@ ubs:
       # boot and printed once to the startup log (see AdminAccountBootstrapper). Only set this
       # explicitly for a controlled first setup, and disable bootstrap-admin.enabled afterward.
       password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    bootstrap-teacher:
+      email: ${BOOTSTRAP_TEACHER_EMAIL:teacher@ubs.edu.gh}
+      # Same rationale as bootstrap-admin.password above — no fixed default.
+      password: ${BOOTSTRAP_TEACHER_PASSWORD:}
 
 management:
   endpoints:

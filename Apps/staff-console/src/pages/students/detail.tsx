@@ -472,7 +472,7 @@ function GuardiansTab({ studentId }: { studentId: string }) {
         name={printModalState.name}
         identifier={printModalState.identifier}
         temporaryPassword={printModalState.temporaryPassword}
-        portalUrl={import.meta.env.VITE_GUARDIAN_PORTAL_URL || '/guardian-portal/login'}
+        portalUrl={import.meta.env.VITE_GUARDIAN_PORTAL_URL || 'http://localhost:5174/login'}
       />
     </div>
   );

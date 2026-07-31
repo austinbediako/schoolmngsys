@@ -32,6 +32,7 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
     private final RoleRepository roleRepository;
     private final StaffService staffService;
     private final PasswordEncoder passwordEncoder;
+    private final SecureTokenGenerator secureTokenGenerator;
 
     @Value("${ubs.security.bootstrap-admin.enabled:true}")
     private boolean enabled;
@@ -39,26 +40,36 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
     @Value("${ubs.security.bootstrap-admin.email:admin@ubs.edu.gh}")
     private String adminEmail;
 
-    @Value("${ubs.security.bootstrap-admin.password:Admin123!}")
-    private String adminPassword;
+    /**
+     * Left blank on purpose — a fixed default password baked into source (e.g. "Admin123!") is a
+     * well-known credential the moment the repository is public, and {@code forcePasswordChange}
+     * is not read anywhere on the login path to compensate. When blank, a random one-time
+     * password is generated per boot and printed once to the startup log; ops may still pin an
+     * explicit value via this property for a controlled first setup.
+     */
+    @Value("${ubs.security.bootstrap-admin.password:}")
+    private String configuredAdminPassword;
 
     @Value("${ubs.security.bootstrap-teacher.email:teacher@ubs.edu.gh}")
     private String teacherEmail;
 
-    @Value("${ubs.security.bootstrap-teacher.password:Teacher123!}")
-    private String teacherPassword;
+    /** Same rationale as {@link #configuredAdminPassword} — no fixed default. */
+    @Value("${ubs.security.bootstrap-teacher.password:}")
+    private String configuredTeacherPassword;
 
     public AdminAccountBootstrapper(
             AccountRepository accountRepository,
             AccountRoleRepository accountRoleRepository,
             RoleRepository roleRepository,
             StaffService staffService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            SecureTokenGenerator secureTokenGenerator) {
         this.accountRepository = accountRepository;
         this.accountRoleRepository = accountRoleRepository;
         this.roleRepository = roleRepository;
         this.staffService = staffService;
         this.passwordEncoder = passwordEncoder;
+        this.secureTokenGenerator = secureTokenGenerator;
     }
 
     @Override
@@ -92,6 +103,9 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
             return;
         }
 
+        boolean generated = configuredAdminPassword == null || configuredAdminPassword.isBlank();
+        String adminPassword = generated ? secureTokenGenerator.generateOpaqueToken().substring(0, 16) : configuredAdminPassword;
+
         Account account = new Account(
                 PersonType.STAFF,
                 adminStaff.id(),
@@ -105,7 +119,19 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
         assignRoleIfExists(account, "SYSTEM_ADMIN");
         assignRoleIfExists(account, "HEAD_OF_SCHOOL");
 
-        log.info("Successfully bootstrapped System Admin account: {} / {}", adminEmail, adminPassword);
+        if (generated) {
+            log.warn(
+                    "Bootstrapped System Admin account ({}) with a ONE-TIME generated password — retrieve it from "
+                            + "THIS log line only, it is never persisted or shown again, and log in to change it "
+                            + "immediately: {}",
+                    adminEmail,
+                    adminPassword);
+        } else {
+            log.warn(
+                    "Bootstrapped System Admin account ({}) using the configured "
+                            + "ubs.security.bootstrap-admin.password — change it immediately after first login.",
+                    adminEmail);
+        }
     }
 
     private void bootstrapTeacher() {
@@ -128,6 +154,9 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
             return;
         }
 
+        boolean generated = configuredTeacherPassword == null || configuredTeacherPassword.isBlank();
+        String teacherPassword = generated ? secureTokenGenerator.generateOpaqueToken().substring(0, 16) : configuredTeacherPassword;
+
         Account account = new Account(
                 PersonType.STAFF,
                 teacherStaff.id(),
@@ -140,7 +169,19 @@ public class AdminAccountBootstrapper implements ApplicationRunner {
 
         assignRoleIfExists(account, "TEACHER");
 
-        log.info("Successfully bootstrapped Staff Teacher account: {} / {}", teacherEmail, teacherPassword);
+        if (generated) {
+            log.warn(
+                    "Bootstrapped Staff Teacher account ({}) with a ONE-TIME generated password — retrieve it from "
+                            + "THIS log line only, it is never persisted or shown again, and log in to change it "
+                            + "immediately: {}",
+                    teacherEmail,
+                    teacherPassword);
+        } else {
+            log.warn(
+                    "Bootstrapped Staff Teacher account ({}) using the configured "
+                            + "ubs.security.bootstrap-teacher.password — change it immediately after first login.",
+                    teacherEmail);
+        }
     }
 
     private void assignRoleIfExists(Account account, String roleName) {
