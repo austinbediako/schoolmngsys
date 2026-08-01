@@ -17,6 +17,12 @@
 
 **AC (sample):** Given a deactivated account, when its refresh token is presented, then the request is rejected and audited.
 
+## SCH — School Configuration (MVP)
+
+| ID | Requirement | Tag |
+|---|---|---|
+| FR-SCH-01 | A single school-settings record (name, motto, address, contact info, logo, SMS/email notification toggles) — view and update; never a second record (WP-11). Academic/grading/attendance/fee settings are NOT duplicated here; each already has its own owning home (GradeScale per year, school-day calendar, fee schedules). | MVP |
+
 ## ACAD — Academic Structure (MVP)
 
 | ID | Requirement | Tag |
@@ -37,6 +43,7 @@
 | FR-STU-04 | Record exits: transfer-out and withdrawal with reason/date (BR-EN-005); generate a transfer summary document (data export). | MVP |
 | FR-STU-05 | Search/filter students by name, number, class, status, guardian phone. | MVP |
 | FR-STU-06 | As a Guardian, I can view my wards' profiles and update my own contact details. | MVP |
+| FR-STU-07 | Optional admission-record fields at enrollment time — nationality, previous school, residential address, emergency contact — settable at creation or after (WP-11). Deliberately excludes medical information (see HLT/BR-HE-001: health data is ring-fenced to its own module, never on the core Student record). | MVP |
 
 ## ADM — Admissions (POST-MVP; MVP uses direct enrollment via FR-STU-03)
 
@@ -140,6 +147,7 @@ The portal is not a separate module server-side; it is the guardian-scoped slice
 | FR-STF-01 | Staff registry: bio-data, type, qualifications, assignments history (BR-ST-001). | MVP |
 | FR-STF-02 | Employment lifecycle with account deactivation (BR-ST-002). | MVP |
 | FR-STF-03 | Leave requests and approvals. | POST-MVP |
+| FR-STF-04 | Upload/view staff document attachments (qualifications, certificates, ID) — staff-side equivalent of FR-STU-01's document attachments, same access-checked storage seam (WP-11). | MVP |
 
 ## INV — Inventory (POST-MVP)
 
@@ -175,6 +183,7 @@ Module by phase:
 
 | Module | MVP | Post-MVP additions |
 |---|---|---|
+| School Configuration | Full (single settings record) | — |
 | Auth & Access | Full | SSO (future, see Roadmap) |
 | Academic Structure | Full | — |
 | Student Information | Full | Alumni views |

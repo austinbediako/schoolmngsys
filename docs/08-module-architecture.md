@@ -11,6 +11,7 @@ Root package `com.drakalabs.schoolmngsys`, one package per module, each internal
 ```
 com.drakalabs.schoolmngsys/
 ├── shared/          # cross-cutting: base types, errors (RFC 7807), events, audit hooks, pagination
+├── school/          # single school-settings record (name, contact, notification toggles) — WP-11
 ├── auth/            # Identity & Access
 ├── academics/       # Academic Structure (years, terms, classes, subjects)
 ├── people/          # Students, Guardians, Staff registries
@@ -51,6 +52,7 @@ Inside each module (convention, not dogma — omit what a module doesn't need):
 
 ```mermaid
 flowchart TD
+    SCH[school]
     subgraph core
         AUTH[auth]
         ACAD[academics]

@@ -1,16 +1,8 @@
--- WP-11: School Configuration & Admission Extensions — three genuine gaps found in the WP-1..WP-10
--- backend audit: no school-settings module, no staff document uploads, and Student was missing
--- admission-record fields (nationality, previous school, address, emergency contact). Deliberately
--- excludes medical information: health data is ring-fenced to the (post-MVP) health module per
--- BR-HE-001, never on the core Student record.
-
-ALTER TABLE students
-    ADD COLUMN nationality TEXT,
-    ADD COLUMN previous_school TEXT,
-    ADD COLUMN residential_address TEXT,
-    ADD COLUMN emergency_contact_name TEXT,
-    ADD COLUMN emergency_contact_phone TEXT,
-    ADD COLUMN emergency_contact_relationship TEXT;
+-- WP-11: School Configuration & Staff Documents — two of the three genuine gaps found in the
+-- WP-1..WP-10 backend audit (the third, Student admission-record fields, was independently added
+-- by V17__student_admission_fields — same column set, already in place, nothing to redo here).
+-- Deliberately excludes medical information anywhere in this WP: health data is ring-fenced to the
+-- (post-MVP) health module per BR-HE-001, never on the core Student record.
 
 CREATE TABLE staff_documents (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
