@@ -5,7 +5,7 @@ import { SectionTabs } from '@/components/section-tabs';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api-client';
 import { AuditLog, PaginatedResponse } from '@/types';
-import { ShieldAlert, Filter, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Filter, ChevronLeft, ChevronRight, RefreshCw, Activity } from 'lucide-react';
 
 const ENTITIES = [
   'Student',
@@ -13,8 +13,8 @@ const ENTITIES = [
   'Enrollment',
   'AcademicYear',
   'Term',
-  'Class',
-  'SubjectOffering',
+  'SchoolClass',
+  'ClassSubjectOffering',
   'FeeSchedule',
   'Payment',
   'Adjustment',
@@ -23,23 +23,23 @@ const ENTITIES = [
   'Account',
   'SchoolSettings',
   'StaffDocument',
+  'Staff',
 ];
 
 export default function AuditLogPage() {
-  const [filters, setFilters] = React.useState({ from: '', to: '', actor: '', entity: '' });
+  const [filters, setFilters] = React.useState({ from: '', to: '', entityType: '' });
   const [page, setPage] = React.useState(0);
 
   const query = new URLSearchParams();
   query.set('page', String(page));
   query.set('size', '20');
-  if (filters.from) query.set('from', filters.from);
-  if (filters.to) query.set('to', filters.to);
-  if (filters.actor) query.set('actor', filters.actor);
-  if (filters.entity) query.set('entity', filters.entity);
+  if (filters.entityType) query.set('entityType', filters.entityType);
+  if (filters.from) query.set('fromDate', `${filters.from}T00:00:00Z`);
+  if (filters.to) query.set('toDate', `${filters.to}T23:59:59Z`);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<PaginatedResponse<AuditLog>>({
-    queryKey: ['audit-log', filters, page],
-    queryFn: () => apiClient(`/audit-log?${query.toString()}`),
+    queryKey: ['audit-logs', filters, page],
+    queryFn: () => apiClient(`/audit-logs?${query.toString()}`),
   });
 
   return (
@@ -80,7 +80,7 @@ export default function AuditLogPage() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">From Date</label>
             <input
@@ -108,24 +108,11 @@ export default function AuditLogPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Actor / Operator</label>
-            <input
-              value={filters.actor}
-              onChange={(e) => {
-                setFilters((f) => ({ ...f, actor: e.target.value }));
-                setPage(0);
-              }}
-              placeholder="Filter by staff email..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 bg-white focus:outline-none"
-            />
-          </div>
-
-          <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700">Entity Type</label>
             <select
-              value={filters.entity}
+              value={filters.entityType}
               onChange={(e) => {
-                setFilters((f) => ({ ...f, entity: e.target.value }));
+                setFilters((f) => ({ ...f, entityType: e.target.value }));
                 setPage(0);
               }}
               className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 bg-white focus:outline-none"
@@ -147,10 +134,10 @@ export default function AuditLogPage() {
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
             <tr>
               <th className="px-5 py-3.5">Timestamp</th>
-              <th className="px-5 py-3.5">Actor</th>
+              <th className="px-5 py-3.5">Actor Account</th>
               <th className="px-5 py-3.5">Entity</th>
               <th className="px-5 py-3.5">Action</th>
-              <th className="px-5 py-3.5">Detail</th>
+              <th className="px-5 py-3.5">Detail / IP</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium">
@@ -167,36 +154,48 @@ export default function AuditLogPage() {
                 </td>
               </tr>
             ) : (
-              data.content.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-5 py-3.5 text-slate-600 font-mono text-[11px] whitespace-nowrap">
-                    {new Date(entry.timestamp).toLocaleString('en-GB', {
+              data.content.map((entry) => {
+                const ts = entry.occurredAt || entry.timestamp;
+                const formattedDate = ts
+                  ? new Date(ts).toLocaleString('en-GB', {
                       year: 'numeric',
                       month: 'short',
                       day: '2-digit',
                       hour: '2-digit',
                       minute: '2-digit',
                       second: '2-digit',
-                    })}
-                  </td>
+                    })
+                  : '—';
 
-                  <td className="px-5 py-3.5 font-bold text-slate-900">{entry.actor}</td>
+                return (
+                  <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-5 py-3.5 text-slate-600 font-mono text-[11px] whitespace-nowrap">
+                      {formattedDate}
+                    </td>
 
-                  <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-[11px] font-semibold">
-                      {entry.entity}
-                    </span>
-                  </td>
+                    <td className="px-5 py-3.5 font-mono text-[11px] text-slate-700 truncate max-w-[140px]">
+                      {entry.actorAccountId || entry.actor || 'System'}
+                    </td>
 
-                  <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[11px] font-bold">
-                      {entry.action}
-                    </span>
-                  </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono text-[11px] font-semibold">
+                        {entry.entityType || entry.entity}
+                      </span>
+                    </td>
 
-                  <td className="px-5 py-3.5 text-slate-600">{entry.detail}</td>
-                </tr>
-              ))
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[11px] font-bold">
+                        {entry.action}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-3.5 text-slate-600 font-mono text-[11px]">
+                      <div>{entry.summary ? JSON.stringify(entry.summary) : entry.detail || (entry.entityId ? `Entity ID: ${entry.entityId}` : '—')}</div>
+                      {entry.ip && <div className="text-[10px] text-slate-400 mt-0.5">IP: {entry.ip}</div>}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

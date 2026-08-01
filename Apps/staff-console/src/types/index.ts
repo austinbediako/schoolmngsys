@@ -220,13 +220,17 @@ export type Account = {
 
 export type AuditLog = {
   id: string;
-  actor: string;
-  actorId: string;
-  entity: string;
-  entityId: string;
+  occurredAt?: string;
+  timestamp?: string;
+  actorAccountId?: string;
+  actor?: string;
   action: string;
-  detail: string;
-  timestamp: string;
+  entityType?: string;
+  entity?: string;
+  entityId?: string;
+  summary?: Record<string, any>;
+  detail?: string;
+  ip?: string;
 };
 
 export type PaginatedResponse<T> = {
