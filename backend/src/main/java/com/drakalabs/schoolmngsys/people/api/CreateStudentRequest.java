@@ -17,7 +17,13 @@ public record CreateStudentRequest(
         @NotNull LocalDate dateOfBirth,
         @NotNull Gender gender,
         @NotNull LocalDate admissionDate,
-        @NotEmpty List<@Valid GuardianLinkRequest> guardianLinks) {
+        @NotEmpty List<@Valid GuardianLinkRequest> guardianLinks,
+        String nationality,
+        String previousSchool,
+        String residentialAddress,
+        String emergencyContactName,
+        String emergencyContactPhone,
+        String emergencyContactRelationship) {
 
     public record GuardianLinkRequest(
             @NotNull UUID guardianId,

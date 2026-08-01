@@ -1,6 +1,7 @@
 package com.drakalabs.schoolmngsys.people.api;
 
 import com.drakalabs.schoolmngsys.people.service.GuardianLinkSpec;
+import com.drakalabs.schoolmngsys.people.service.StudentAdmissionDetails;
 import com.drakalabs.schoolmngsys.people.service.StudentGuardianLinkService;
 import com.drakalabs.schoolmngsys.people.service.StudentQueryService;
 import com.drakalabs.schoolmngsys.people.service.StudentService;
@@ -64,6 +65,13 @@ public class StudentController {
                                         link.receivesBilling(),
                                         link.receivesAcademicReports()))
                         .toList();
+        StudentAdmissionDetails admissionDetails = new StudentAdmissionDetails(
+                request.nationality(),
+                request.previousSchool(),
+                request.residentialAddress(),
+                request.emergencyContactName(),
+                request.emergencyContactPhone(),
+                request.emergencyContactRelationship());
         return StudentResponse.from(
                 studentService.createStudent(
                         request.firstName(),
@@ -72,13 +80,27 @@ public class StudentController {
                         request.dateOfBirth(),
                         request.gender(),
                         request.admissionDate(),
-                        links));
+                        links,
+                        admissionDetails));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('STUDENT_UPDATE')")
     public StudentResponse update(@PathVariable UUID id, @RequestBody @Valid UpdateStudentBioRequest request) {
         return StudentResponse.from(studentService.updateBio(id, request.firstName(), request.lastName(), request.otherNames()));
+    }
+
+    @PutMapping("/{id}/admission-details")
+    @PreAuthorize("hasAuthority('STUDENT_UPDATE')")
+    public StudentResponse updateAdmissionDetails(@PathVariable UUID id, @RequestBody UpdateStudentAdmissionDetailsRequest request) {
+        StudentAdmissionDetails details = new StudentAdmissionDetails(
+                request.nationality(),
+                request.previousSchool(),
+                request.residentialAddress(),
+                request.emergencyContactName(),
+                request.emergencyContactPhone(),
+                request.emergencyContactRelationship());
+        return StudentResponse.from(studentService.updateAdmissionDetails(id, details));
     }
 
     @DeleteMapping("/{id}")
