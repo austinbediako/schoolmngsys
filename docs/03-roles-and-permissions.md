@@ -56,6 +56,8 @@ Scopes: **All** school-wide · **Dept** own department · **Own** own classes/su
 | Library catalog/loans | — | R | — | — | R | — | ✓ All | — | R Own | R self |
 | Health profiles & visits | — | R summary | — | — | ⚠ alerts only | — | — | ✓ All | ✓ Own (view+supply) | — |
 | Staff records | R | ✓ All | ✓ All | R Dept | R self | R self | R self | R self | — | — |
+| Staff documents (WP-12) | R | ✓ | ✓ | — | — | — | — | — | — | — |
+| School settings (WP-12) | ✓ | ✓ | R | R | R | R | R | R | — | — |
 | Inventory | R | R | ✓ | R | — | R | — | — | — | — |
 | Announcements | ✓ | ✓ | ✓ | ✓ Dept | ✓ Own class | — | — | — | R | R |
 | Dashboards/analytics | ✓ tech | ✓ All | R All | R Dept | R Own | ✓ finance | R library | R health | R Own | — |

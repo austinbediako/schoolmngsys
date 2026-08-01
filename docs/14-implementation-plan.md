@@ -30,8 +30,10 @@ Dependencies are on other work packages. "Rules" cites the binding rules the pac
 | **WP-8** | communication | WP-6, WP-7 | Outbox, templates, SMS/email adapters, event subscriptions, announcements, delivery log | FR-COM-01…03, BR-CO-001…004, ADR-008 |
 | **WP-9** | progression | WP-6 | Year-end promotion run, repeat exceptions with approval, bulk next-year enrollment generation | FR-PRO-01/02, BR-PR-001…005 |
 | **WP-10** | analytics | WP-5, WP-6, WP-7 | Head dashboard read models (enrollment, attendance rate, collection, results distribution) | FR-DASH-01 |
+| **WP-11** | progression (BECE) | WP-9 | BECE candidate registration (bio-data snapshot), stanine result import — **out-of-plan**: BECE is explicitly listed as "Not in Phase 1" below and in the docs/05 feature matrix; built anyway, retroactively documented here rather than left untracked | FR-BEC-01…03, BR-BE-001…003 |
+| **WP-12** | school (+ people extensions) | WP-3 | Three gaps found in a WP-1..WP-10 backend audit: single school-settings record (ADR-012), staff document uploads (mirrors FR-STU-01), student admission-record fields (nationality, previous school, address, emergency contact — excludes medical, ring-fenced to HLT per BR-HE-001) | FR-SCH-01, FR-STF-04, FR-STU-07 |
 
-**Not in Phase 1** (per feature matrix): admissions workflow, BECE, timetable, LMS, library, health, inventory, staff leave, role dashboards, MoMo online payments.
+**Not in Phase 1** (per feature matrix): admissions workflow, ~~BECE~~ (built anyway as WP-11, see above), timetable, LMS, library, health, inventory, staff leave, role dashboards, MoMo online payments.
 
 ## 3. Milestones
 
@@ -44,6 +46,11 @@ Dependencies are on other work packages. "Rules" cites the binding rules the pac
 | **M5 — MVP complete** | WP-9, WP-10, hardening | Year-end promotion runs; Head has dashboards; parallel-run with paper begins |
 
 M5 exit = Phase 1 exit criterion from [13 — Roadmap](13-roadmap.md): *one full term operated digitally in parallel with paper.*
+
+WP-11 (BECE) and WP-12 (school config extensions) sit outside M1–M5 — WP-11 is out-of-plan scope-creep
+(§2 already lists BECE as "Not in Phase 1"); WP-12 is gap-fill work found by auditing the WP-1..WP-10
+backend against a real admin-onboarding workflow, not part of the original milestone scope. Neither
+blocks or is blocked by M5 exit.
 
 ## 4. Migration Sequence (scope only — SQL is written during implementation)
 
@@ -64,7 +71,13 @@ Naming per [09 §1](09-data-architecture.md#1-naming-standards-canonical); immut
 | `V11__finance` | fee_schedules, fee_items, invoices, invoice_lines, adjustments, payments, payment_allocations |
 | `V12__communication` | message_templates, notification_outbox, notification_deliveries, announcements |
 | `V13__progression` | promotion_runs, promotion_decisions |
-| `V14__analytics_read_models` | Views/materialized views for FR-DASH-01 |
+| `V14__bece` | bece_registrations, bece_results — **WP-11 below**, out-of-plan (BECE is POST-MVP per §2's own exclusion list) |
+| `V15__seed_bece_permissions` | BECE_REGISTER/BECE_SCORE_ENTER — added after-the-fact; V14 referenced them but never seeded any, so every BECE endpoint was unreachable until this migration |
+| `V16__analytics_read_models` | Views for FR-DASH-01 (WP-10) |
+| `V17__student_admission_fields` | students: nationality, previous_school, residential_address, emergency_contact_* (WP-12) |
+| `V18__complete_nacca_subjects_catalog` | Extends the seeded NaCCA subject catalog (V4) with the full curriculum list |
+| `V19__wp11_school_config_staff_documents` | staff_documents (mirrors student_documents); school_settings (singleton, seeded — WP-12/ADR-012) |
+| `V20__seed_wp11_permissions` | STAFF_DOCUMENT_VIEW/UPLOAD, SCHOOL_SETTINGS_VIEW/MANAGE |
 
 Constraint coverage for the invariants in [09 §4](09-data-architecture.md#4-integrity-rules-the-schema-must-enforce-not-just-the-application) is part of the migration that creates each table — not a later pass.
 
@@ -83,18 +96,23 @@ Constraint coverage for the invariants in [09 §4](09-data-architecture.md#4-int
 | WP-8 | Outbox written in same transaction as domain change; retry/backoff; provider outage doesn't fail the workflow (NFR-08); guardian message consolidation |
 | WP-9 | Auto-promote default (A-08); repeat requires justification + Head approval; bulk next-year enrollment generation; JHS 3 excluded from promotion |
 | WP-10 | Read-model figures match transactional truth for a seeded term |
+| WP-11 | JHS-3-only registration gate (BR-BE-001); bio-data snapshot on registration; stanine range validation + idempotent import (BR-BE-003); permission gate reachable end-to-end via MockMvc (a service-only test suite previously missed that BECE's permissions were never seeded — every endpoint was 403 for everyone) |
+| WP-12 | Singleton school-settings row (get/update/updateLogo always act on the same row, never create a second); staff document upload/list/download round-trip; student admission-detail fields settable at creation or after, and the original 7-arg `createStudent` overload keeps working unchanged |
 
 All persistence tests run against real PostgreSQL (never H2) per [CLAUDE.md](../CLAUDE.md) testing philosophy; fixtures use synthetic Ghanaian-realistic data.
 
 ## 6. Permission Catalog
 
-**Definitive list**, tracing 1:1 to the matrix in [03 §3](03-roles-and-permissions.md#3-permission-matrix). Seeded by `V3`. Scope suffixes are *not* encoded in the string; scope is applied per-role in the service layer (doc 11 §3).
+Base catalog traces 1:1 to the matrix in [03 §3](03-roles-and-permissions.md#3-permission-matrix) and is seeded by `V3` (extended by later migrations only — never edited in place, per its own header comment). Scope suffixes are *not* encoded in the string; scope is applied per-role in the service layer (doc 11 §3). `V15` (BECE) traces to docs/03's pre-existing "BECE registration" row; `V20` (WP-12) added new "Staff documents"/"School settings" rows to that same matrix.
 
 | Domain | Permissions |
 |---|---|
 | Accounts | `ACCOUNT_VIEW`, `ACCOUNT_CREATE`, `ACCOUNT_UPDATE`, `ACCOUNT_DEACTIVATE`, `ROLE_ASSIGN` |
 | Academic structure | `ACADEMIC_YEAR_VIEW/CREATE/UPDATE/CLOSE`, `CLASS_VIEW/CREATE/UPDATE`, `SUBJECT_VIEW`, `SUBJECT_OFFERING_MANAGE`, `TEACHER_ASSIGNMENT_MANAGE`, `CALENDAR_MANAGE` |
 | Students & guardians | `STUDENT_VIEW`, `STUDENT_VIEW_IDENTITY_ONLY`, `STUDENT_CREATE`, `STUDENT_UPDATE`, `STUDENT_ARCHIVE`, `GUARDIAN_VIEW/CREATE/UPDATE`, `GUARDIAN_LINK_MANAGE`, `STUDENT_DOCUMENT_VIEW/UPLOAD` |
+| BECE (`V15`, WP-11) | `BECE_REGISTER`, `BECE_SCORE_ENTER` |
+| School settings (`V20`, WP-12) | `SCHOOL_SETTINGS_VIEW`, `SCHOOL_SETTINGS_MANAGE` |
+| Staff documents (`V20`, WP-12) | `STAFF_DOCUMENT_VIEW`, `STAFF_DOCUMENT_UPLOAD` |
 | Enrollment | `ENROLLMENT_VIEW`, `ENROLLMENT_CREATE`, `ENROLLMENT_END`, `ROSTER_VIEW` |
 | Attendance | `ATTENDANCE_VIEW`, `ATTENDANCE_MARK`, `ATTENDANCE_CORRECT` |
 | Assessment | `ASSESSMENT_COMPONENT_MANAGE`, `SCORE_ENTER`, `RESULT_VIEW`, `RESULT_SUBMIT`, `RESULT_APPROVE`, `RESULT_PUBLISH`, `RESULT_REVISE`, `REPORT_CARD_VIEW`, `GRADE_SCALE_MANAGE` |

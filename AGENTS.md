@@ -11,7 +11,7 @@ project understanding from the repository alone, plus which document owns which 
 
 **UBS-LMIS** — University Basic School Legon Integrated Management Information System. Backend-first school management platform for a Ghanaian basic school (Nursery → JHS 3): students, guardians, staff, attendance, SBA+exam results, BECE, fees, communication. Vision and MVP boundary: [docs/01-product-vision.md](docs/01-product-vision.md). Persistent project memory: [memory.md](memory.md). Current state and next steps: [task.md](task.md).
 
-**Current phase: Phase 1 (MVP backend) in progress — WP-0 through WP-7 complete (M1/M2/M4 closed, M3 done), WP-8 (communication) next.** Follow the work-package order, migration sequence, and permission catalog in [docs/14-implementation-plan.md](docs/14-implementation-plan.md) — current state in [task.md](task.md).
+**Current phase: Phase 1 (MVP backend) COMPLETE — WP-0 through WP-10 done (M1/M2/M3/M4/M5 all closed), verified 2026-08-01.** Two out-of-plan additions also exist: WP-11 (BECE) and WP-12 (school settings, staff documents, student admission-record fields). Follow the work-package order, migration sequence, and permission catalog in [docs/14-implementation-plan.md](docs/14-implementation-plan.md) — current state in [task.md](task.md).
 
 ## Stack
 

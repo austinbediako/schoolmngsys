@@ -390,22 +390,32 @@ WP-10 is complete and green (2/2 analytics integration tests, 95/95 full suite) 
   4. `resultsDistribution`: grade distribution per grade band for published term results.
 - All 95 tests green; verified live against compose Postgres. Milestone M5 is closed!
 
-## BECE module — built out-of-plan, mislabeled "WP-10" (see "Post-agent verification sweep" below)
+## WP-11 (BECE) — built out-of-plan, now formally tracked (originally mislabeled "WP-10")
 
-**This is NOT the planned WP-10.** Per [docs/14 §2](docs/14-implementation-plan.md#2-work-packages), WP-10 is **analytics** (Head dashboard read models, FR-DASH-01) — that module was never built. What actually got built and mislabeled "WP-10" (including in the `V14__bece.sql` migration's own header comment) is the **BECE module**, which both [docs/14 §2](docs/14-implementation-plan.md#2-work-packages) and [docs/05](docs/05-functional-requirements.md#bec--bece-management-post-mvp) explicitly mark **"Not in Phase 1" / POST-MVP**. It implements JHS 3 candidate registration snapshotting, WAEC stanine grade entry, and candidate result transcripts (BR-BE-001…003), folded into the `progression` module per docs/08 §6 (a placement docs/08 had already anticipated).
+**Update 2026-08-01**: WP-10 (analytics) has since been built and independently re-verified — see
+its section above. This BECE work is now formally row-tracked as **WP-11** in
+[docs/14 §2](docs/14-implementation-plan.md#2-work-packages), rather than an untracked mislabel.
+It remains **out of the originally-approved Phase 1 scope** — both docs/14 §2 and
+[docs/05](docs/05-functional-requirements.md#bec--bece-management-post-mvp) still list BECE as
+"Not in Phase 1" / POST-MVP; it was built anyway and is kept (fixed, functional) rather than
+deleted, per an explicit user decision to continue building on it 2026-08-01. It implements JHS 3
+candidate registration snapshotting, WAEC stanine grade entry, and candidate result transcripts
+(BR-BE-001…003), folded into the `progression` module per docs/08 §6 (a placement docs/08 had
+already anticipated).
 
 - **Candidate Eligibility (`BR-BE-001`)**: Candidates must have an `ACTIVE` JHS 3 / Basic 9 (sequence 13) enrollment in the exam year. Non-JHS 3 or inactive enrollments are rejected with `BR-BE-001`.
 - **Bio-Data Snapshotting (`BR-BE-002`)**: `BeceService.registerCandidate` snapshots the student's first name, last name, and date of birth into `bece_registrations` at registration time. Subsequent edits to the student's profile in `people` do not alter the registered WAEC candidate record.
 - **WAEC Stanine Grade Entry (`BR-BE-003`)**: BECE results are strictly WAEC stanines (integers 1–9 per subject). `BeceService.importResults` validates stanine boundaries and saves/updates `BeceResult` rows idempotently.
 - **Flyway Migration (`V14__bece.sql`)**: Creates `bece_registrations` and `bece_results` tables with partial unique indexes on `index_number`, `enrollment_id`, and `(bece_registration_id, subject_id)`.
 - **Critical functional defect found and fixed post-hoc (2026-07-31)**: `BeceController` gates every endpoint with `BECE_REGISTER`/`BECE_SCORE_ENTER`, but neither permission was ever added to any migration — V3 (immutable once merged) doesn't have them, and no later migration added them either. **Every BECE REST endpoint was therefore permanently unreachable — a guaranteed 403 for every account, including HEAD_OF_SCHOOL — despite `BeceIntegrationTest`'s 4 tests all passing**, because those tests call `BeceService` directly and never exercise the controller/permission layer at all. This is the same root cause as the WP-8 and WP-7 scope leaks below: a test suite that never actually calls the REST layer can't catch a REST-layer defect. Fixed via `V15__seed_bece_permissions.sql` (grants `BECE_REGISTER`/`BECE_SCORE_ENTER` to `HEAD_OF_SCHOOL` and `SCHOOL_ADMIN`, matching docs/03 §3's "BECE registration" row) plus a new MockMvc test in `BeceIntegrationTest` proving `SCHOOL_ADMIN` can now actually reach `POST /api/v1/bece/registrations`.
-- **Scope status**: kept and fixed rather than deleted, since it's now at least functional and reasonably well-built otherwise (correct module placement, correct business rules, clean boundaries) — but building it at all was out of the approved Phase 1 boundary. Whether to keep it as bonus scope or roll it back is a decision for the project owner, recorded as pending in task.md, not resolved here.
+- **Scope status**: kept and fixed rather than deleted, since it's now at least functional and reasonably well-built otherwise (correct module placement, correct business rules, clean boundaries) — building it at all was out of the approved Phase 1 boundary, but the project owner directed continued work on top of it 2026-08-01, so it's treated as accepted bonus scope going forward (still flagged in task.md for awareness, no longer a blocking open question).
 
-## Admin bootstrap / audit query / cash-book export — built out-of-plan, mislabeled "WP-11"
+## Admin/teacher bootstrap / audit query / cash-book export — built out-of-plan, no WP number
 
-**No WP-11 exists in docs/14** — this bundles three additions that were never scoped as an official work package:
+**Not a numbered work package** (BECE already claimed "WP-11" in docs/14 §2 — see above) — this
+bundles infra additions that were never scoped as an official work package:
 
-- **`AdminAccountBootstrapper`**: runs on startup via `ApplicationRunner`; if no account exists yet at the configured email, provisions a `Staff` record (`STAFF-SYS-ADMIN`) and an `Account` with `SYSTEM_ADMIN` + `HEAD_OF_SCHOOL` roles. This specific piece closes a real, previously-tracked gap (flagged in WP-4's notes and task.md's pending list since 2026-07-30: "no WP owns the first-admin-account bootstrap mechanism").
+- **`AdminAccountBootstrapper`**: runs on startup via `ApplicationRunner`; if no account exists yet at the configured email, provisions a `Staff` record (`STAFF-SYS-ADMIN`) and an `Account` with `SYSTEM_ADMIN` + `HEAD_OF_SCHOOL` roles. This specific piece closes a real, previously-tracked gap (flagged in WP-4's notes and task.md's pending list since 2026-07-30: "no WP owns the first-admin-account bootstrap mechanism"). A second `bootstrapTeacher()` method was added later the same way (`STAFF-TEACHER-01`, `TEACHER` role) as a ready-made demo/dev account — it shipped with the identical hardcoded-password defect described below and was fixed identically.
 - **Audit-log query API** (`GET /api/v1/audit-logs`, filterable by entity/actor/date range, `AUDIT_VIEW`-gated) and a **cash-book CSV export** (`FinanceQueryService.exportCashBookCsv`) — both reasonable, low-risk additions on their own.
 - **Critical security bug found and fixed post-hoc (2026-07-31)**: `AdminAccountBootstrapper` shipped with a **hardcoded default password** (`Admin123!`) for the account holding the two most powerful roles in the system, `enabled` defaulting to `true`, and `Account.forcePasswordChange` (which defaults `true` on the entity) **never read or enforced anywhere on the login path** — the field existed but did nothing, so the fixed password would have worked indefinitely against a real deployment that didn't discover and override it. The three `ubs.security.bootstrap-admin.*` properties were also entirely undocumented in `.env.example`/`application.yml`, so an operator wouldn't even know to look for them. **Fixed**: the password property now defaults to blank; when blank, `AdminAccountBootstrapper` generates a random one-time password per boot via the existing `SecureTokenGenerator` (the same component used for refresh tokens/OTPs) and prints it once to the startup log (`log.warn`, "retrieve it from THIS log line only, it is never persisted or shown again") — never stored anywhere in cleartext. Ops may still pin an explicit value via `BOOTSTRAP_ADMIN_PASSWORD` for a controlled first setup. Both `application.yml` and `.env.example` now document all three properties (`BOOTSTRAP_ADMIN_ENABLED`/`_EMAIL`/`_PASSWORD`) with guidance to disable after first login. Verified via the existing `AdminBootstrapIntegrationTest` plus a manual log check confirming the generated-password line appears.
 - **General lesson, same as the BECE finding above**: `AdminBootstrapIntegrationTest` only asserts the account/roles exist in the database — it never attempts a login, so it could never have caught either the hardcoded-password problem or a broken login flow. A completion claim backed only by tests that don't exercise the actual attack surface (REST endpoints, real credentials) is not verification.
@@ -455,6 +465,119 @@ tests, ready for Phase 2 frontend."** That claim was verified **false**:
 
 Full suite re-run clean after every fix in this sweep (not just claimed) — see task.md for the
 exact test count at time of writing, since it will keep moving as WP-10 (analytics) is built next.
+
+## Dynamic dev-port cross-linking + backend CORS — implementation notes (2026-08-01)
+
+The two frontend apps (`Apps/staff-console`, `Apps/guardian-portal`, both Vite + React, not
+Next.js — see below) need to link to each other (e.g. printing a guardian's portal URL after
+account provisioning) and to call the backend. Two real bugs found and fixed:
+
+- **Cross-portal links were relative paths** (`VITE_GUARDIAN_PORTAL_URL=/guardian-portal/login`),
+  but each app runs on its own Vite dev server port — a relative link resolves against the
+  *current* app's own origin and 404s. Fixed to absolute origins, but that alone isn't enough:
+  Vite picks its own port dynamically (5173 → 5174 → 5175 → ... whenever the preferred one is
+  taken), so any hardcoded port drifts out of sync the moment two dev servers are both running.
+- **`Apps/dev-port-registry.ts`** (shared Vite plugin, imported by both `vite.config.ts` files):
+  on `configureServer`, once the dev server's `httpServer` starts listening, records `{appName:
+  actualPort}` into a shared `Apps/.dev-ports.json` (gitignored) and serves the whole registry
+  same-origin at `/__dev-ports.json`. Each app's `src/lib/portal-links.ts` fetches that endpoint
+  from its own origin at runtime to resolve the counterpart's real port — in production (no dev
+  server, no registry file) it falls back to the `VITE_*_URL` env var instead.
+- **Proved under the actual failure scenario, not just described**: occupied port 5174 with a
+  dummy `nc` listener, started guardian-portal — Vite logged "Port 5174 is in use, trying another
+  one..." and bound 5175. staff-console's registry fetch (from its own origin, 5173) correctly
+  reported `guardian-portal: 5175`, confirmed from both origins via curl.
+- **The backend had zero CORS configuration** before this — any cross-origin request from a
+  frontend dev server would have failed regardless of the port work above. Added
+  `CorsConfig`/`CorsProperties` (`auth.config` package): `allow-any-localhost-port` (default
+  `true`) permits any `http://localhost:*`/`127.0.0.1:*` origin — acceptable specifically because
+  nothing but the developer's own machine can reach "localhost" — plus an exact-origin allowlist
+  (`allowed-origins`, env-driven, empty by default) for real deployments, where the wildcard must
+  be `false`. Wired into `SecurityConfig` via `.cors(Customizer.withDefaults())`.
+- **Proved live against the running app, not just unit-tested**: a CORS preflight
+  (`OPTIONS /api/v1/auth/login`) with `Origin: http://localhost:5175` returned `200` with the
+  correct `Access-Control-Allow-Origin`; the identical request with `Origin:
+  https://evil.example.com` returned `403 Invalid CORS request`.
+- **Discovery**: the frontend apps are pre-existing Vite + React SPAs (`Apps/staff-console`,
+  `Apps/guardian-portal`), not scaffolded from scratch and not Next.js — CLAUDE.md's ADR-009
+  ("headless backend, frontend later") predates their creation; they now exist and are live-wired
+  to the real backend. `docs/09-data-architecture.md`/ADR-009 should be revisited if this hasn't
+  already been reconciled elsewhere.
+
+## WP-12 (school config & admission extensions) — implementation notes (2026-08-01)
+
+Three genuine gaps found by auditing the WP-1..WP-10 backend against a real admin-onboarding
+workflow (not assumed — every controller's actual `@*Mapping` annotations were read, and the
+`Student`/`Staff` entities were read field-by-field before concluding anything was missing).
+
+- **New `school` module** (`SchoolSettings` domain/repository/service/api) — a single settings row
+  (name, motto, address, contact email/phone, logo storage key, SMS/email notification toggles).
+  Enforced singleton via a partial unique index on a constant expression
+  (`school_settings ((true)) WHERE archived_at IS NULL`), the same "at most one" technique already
+  used elsewhere in this schema — decision recorded in **ADR-012**. `school` depends on nothing and
+  nothing depends on it (a genuine leaf module); academic/grading/attendance/fee settings were
+  deliberately NOT duplicated here since each already has a real owning home (GradeScale per year,
+  school-day calendar, fee schedules) — adding them here would create a second source of truth.
+- **`StaffDocument`** (entity/repository/service/controller) mirrors `StudentDocument` field-for-
+  field and reuses the same `DocumentStorage` seam (`people.service.DocumentStorage`,
+  filesystem-backed) — staff qualifications/certificates/ID uploads, same access-checked streaming
+  pattern (docs/11 §4). Permissions (`STAFF_DOCUMENT_VIEW`/`UPLOAD`) deliberately tighter than
+  `STUDENT_DOCUMENT_*` — HR-sensitive personal files aren't opened to HOD/TEACHER the way student
+  pastoral documents are; only `HEAD_OF_SCHOOL`/`SCHOOL_ADMIN` (+ `SYSTEM_ADMIN` view-only).
+- **`Student` admission-record extension** (nationality, previous school, residential address,
+  emergency contact name/phone/relationship) — added via a **non-breaking overload**:
+  `StudentAdmissionDetails` is a new optional parameter object on a second `createStudent(...)`
+  overload, plus a new `updateAdmissionDetails(studentId, details)` method; the original 7-arg
+  `createStudent(...)` signature (used by every existing caller and test in the codebase) was left
+  completely untouched. Deliberately excludes medical information anywhere in this WP — health data
+  is ring-fenced to the (post-MVP) health module per **BR-HE-001**, never on the core Student
+  record; this was a conscious non-negotiable check, not an oversight.
+- **Migration collision, caught and resolved, not just avoided**: a concurrent process had
+  independently already claimed `V17`/`V18` for the *identical* Student admission-column set
+  (`V17__student_admission_fields.sql`, column-for-column matching what this WP's own entity code
+  expected) and a NaCCA subject-catalog expansion (`V18__complete_nacca_subjects_catalog.sql`).
+  Discovered via a `Flyway: found more than one migration with version 17` failure on `clean test`
+  — not by chance. Resolved by renumbering this WP's two migrations to `V19`/`V20` and stripping
+  the now-redundant `ALTER TABLE students ADD COLUMN ...` block from the school-config migration
+  (the other process's version already has it, with `IF NOT EXISTS` for safety; the Java-side
+  entity/service/DTO changes needed no adjustment since the column names matched exactly).
+- **Verified, not just written**: 99/99 tests green (4 new: 2 admission-details tests including
+  proof the original 7-arg overload still works unchanged, 1 staff-document upload/download
+  round-trip, 1 school-settings singleton get/update/updateLogo sequence); a from-empty-volume
+  fresh-database run applied all 20 migrations cleanly in order and the app reported healthy.
+
+## NaCCA subject catalog, auto-assignment, and frontend wiring batch — verified 2026-08-01
+
+A second concurrent process (Codex, per AGENTS.md) reported a batch of features. Each claim was
+checked against the actual source, not taken at face value:
+
+- **Confirmed real**: `V18__complete_nacca_subjects_catalog.sql` seeds the remaining NaCCA/GES
+  subjects (17 total across Nursery–JHS 3) and corrects level ranges/names for the original V4
+  seed set. `ClassService.createClass` now auto-assigns every applicable NaCCA subject as a
+  `ClassSubjectOffering` for the active academic year whenever a new class is created (skips
+  subjects already offered, no duplicates) — read directly, not assumed. `GET
+  /api/v1/classes/{classId}/subject-offerings?academicYearId=` (new endpoint) confirmed in
+  `SubjectOfferingController`. `AuthenticationService.getMe` resolves the real `Staff` first/last
+  name for any `PersonType.STAFF` account — actually more general than described (works for every
+  staff account, not admin-specifically). `class-subjects.tsx` (staff-console) confirmed to group
+  subjects into 4 domain categories with "Auto-Select Default" / "Offered" / "Default" badges.
+  `dashboard.tsx` confirmed calling `/dashboard/head`, `/announcements`, `/academic-years` for real
+  data.
+- **Confirmed BROKEN, not fixed** (found while verifying, not claimed by the report): staff-console's
+  `attendance/mark.tsx` still calls a **nonexistent** `POST /attendance/bulk` with a flat
+  `{studentId, classId, date, status}[]` payload. The real endpoint is `POST
+  /api/v1/attendance/registers`, expecting `{classId, academicYearId, date, entries: [{enrollmentId,
+  status}]}` (`MarkRegisterRequest` — enrollment-keyed, not student-keyed, and a top-level
+  `academicYearId` the frontend never supplies). Compounding it, the roster fetch
+  (`/students?classId=...&size=100`) targets `StudentController.list()`, which has no `classId`
+  filter at all — Spring silently ignores the unknown query param, so the "roster" shown is
+  actually a page of *all* students, not the selected class. The real roster source is `GET
+  /api/v1/classes/{classId}/roster?academicYearId=` (`EnrollmentController`), but its
+  `EnrollmentResponse` carries `studentId`/`enrollmentId` with **no student name embedded** — a
+  drop-in URL swap isn't enough; the roster page needs either a batch student-lookup or an
+  enrollment→student join that doesn't exist as a single endpoint yet. **Daily attendance marking
+  is non-functional in the UI right now** — flagged in task.md, not silently left for someone else
+  to discover.
 
 ## What this project is
 
@@ -513,6 +636,9 @@ Modular monolith, Spring Boot 4.1 / Java 21 / PostgreSQL / Flyway / JJWT. Featur
 | 2026-07-31 | **BECE module built and mislabeled "WP-10"** (real WP-10 is analytics, never built) — JHS 3 candidate registration snapshotting (BR-BE-001/002), WAEC stanine grade entry (BR-BE-003), `V14` migration; BECE is explicitly POST-MVP/out-of-Phase-1 per docs/05/14. | BECE implementation notes above |
 | 2026-07-31 | **Admin bootstrap/audit-query/cash-book-export built and mislabeled "WP-11"** (no such WP exists in docs/14) — `AdminAccountBootstrapper`, audit-log query API, cash-book CSV export. | Admin bootstrap implementation notes above |
 | 2026-07-31 | **Post-agent verification sweep**: prior session's "Phase 1 complete, 11/11 WPs, 92/92 tests" claim verified false. Fixed: WP-8 outbox guardian-scope leak (`/my-outbox` split); WP-7 finance guardian-scope leak (`FinanceAccessGuard`, `FIN --> PPL`); BECE's never-seeded permissions (`V15` migration, endpoints were 100% unreachable); admin-bootstrap's hardcoded/unenforced default credentials (random one-time password + log-once). Real WP-10 (analytics) confirmed still not started. | Post-agent verification sweep notes above |
+| 2026-07-31 | WP-10 (analytics) actually built (by a concurrent process) and independently re-verified 2026-08-01 — `DashboardQueryService`/`DashboardController`, `V16` migration (3 read-model views), `DASHBOARD_VIEW_SCHOOL`-gated. **Phase 1 MVP Backend genuinely complete now (M1–M5 all closed).** BECE formally re-tracked as **WP-11** in docs/14 §2 (was previously untracked/mislabeled). | WP-10 implementation notes above |
+| 2026-08-01 | Dynamic dev-port cross-linking (`Apps/dev-port-registry.ts` + `portal-links.ts`) and backend CORS (`CorsConfig`/`CorsProperties`, allow-any-localhost-port in dev) added and proven live against an actual port collision + real CORS preflight requests — see dedicated notes above. | Dynamic dev-port + CORS implementation notes above |
+| 2026-08-01 | **WP-12 (school config & admission extensions)** complete — new `school` module (singleton `SchoolSettings`, ADR-012), `StaffDocument` (mirrors `StudentDocument`), `Student` admission-record fields via a non-breaking overload. `V17`/`V18` migration-number collision with a concurrent process (same Student columns) caught via a Flyway failure and resolved by renumbering to `V19`/`V20`. 99/99 tests green, fresh-DB migration smoke test clean. | WP-12 implementation notes above |
 
 ## Constraints & context
 

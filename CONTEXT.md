@@ -136,12 +136,13 @@ Before concluding a session, verify every line:
 
 ## 5. Current State
 
-Phase 0 (engineering foundation) is complete. Phase 1 (MVP backend) is in progress: WP-0 through
-WP-9 are complete — M1 (walking skeleton), M2 (registry ready), M3 (daily operations), and M4
-(term close) are all closed; M5 is in progress. **WP-10 (analytics) is next and has not been
-started** — a prior session's claim that WP-10/WP-11 were done and Phase 1 was complete was
-verified false on 2026-07-31: what was actually built under those labels was the BECE module
-(explicitly out of Phase 1 scope) and an admin-bootstrap/audit/export bundle (not an official work
-package), both containing real defects since fixed — see task.md and memory.md's "Post-agent
-verification sweep" for the full account. **[task.md](task.md) is the authority on status** — if
-this section and task.md ever disagree, task.md wins and this line should be corrected.
+Phase 0 (engineering foundation) is complete. **Phase 1 (MVP backend) is complete**: WP-0 through
+WP-10 are done — M1 through M5 are all closed. This was independently re-verified on 2026-08-01
+(real endpoints/migrations/99 tests read and run, not assumed) after an earlier false "complete"
+claim on 2026-07-31 turned out to be premature — see memory.md's "Post-agent verification sweep"
+for that history. Two out-of-plan additions also exist: **WP-11 (BECE)** — explicitly listed as
+post-MVP in docs/05's feature matrix, built anyway; its permissions were missing until self-healed
+— and **WP-12 (school settings, staff documents, student admission-record fields)** — gap-fill
+found by auditing the WP-1..WP-10 backend against a real admin-onboarding workflow, not part of
+the original milestone scope. **[task.md](task.md) is the authority on status** — if this section
+and task.md ever disagree, task.md wins and this line should be corrected.

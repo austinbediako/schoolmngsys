@@ -88,6 +88,7 @@ Key readings: `communication`, `analytics`, and `audit` are **downstream-only** 
 
 | Module | Owns (data) | Exposes (services) | Consumes | FRs |
 |---|---|---|---|---|
+| school | the single school-settings record | get/update settings, update logo | — | FR-SCH-* |
 | auth | accounts, roles, permissions, tokens | AuthN, account provisioning, permission checks | people (person linkage) | FR-AUTH-* |
 | academics | years, terms, variants, classes, subjects, offerings | calendar queries ("is date a school day for level X?"), structure queries | — | FR-ACAD-* |
 | people | students, guardians, staff, links, documents | registries, guardian-ward resolution (authorization scope source) | — | FR-STU-01/02/05, FR-STF-* |
@@ -139,6 +140,7 @@ whose entire content is a handful of entities sharing one lifecycle with its nei
 | Communication · Audit | same-named modules | Downstream-only (§3) |
 | *(no context — cross-cutting)* | `shared` | Infrastructure, not a domain |
 | *(no context yet)* | `lms` | Post-MVP; scope deliberately limited to materials/assignments ([01](01-product-vision.md) out-of-scope table) |
+| *(no context — system config)* | `school` | WP-11: the single school-settings record; not one of the concept document's 17 core modules (§6.2), added when the WP-1..WP-10 backend audit found no home existed for school name/contact/notification config |
 
 ### 6.2 Concept-document module → architecture
 
@@ -165,9 +167,10 @@ package boundaries; this table proves none was dropped.
 | 16 | Inventory | `inventory` (post-MVP) |
 | 17 | Dashboard & Analytics | `analytics` |
 
-Modules with no concept-document counterpart — `shared`, `communication`, `audit`, and the promotion half of
+Modules with no concept-document counterpart — `shared`, `communication`, `audit`, `school`, and the promotion half of
 `progression` — are infrastructure and lifecycle concerns the concept document did not name but the school's operation
-requires; each is justified in its owning documentation (ADR-007 audit, ADR-008 communication, [12](12-gap-analysis.md) G-02 promotion).
+requires; each is justified in its owning documentation (ADR-007 audit, ADR-008 communication, ADR-012 school settings,
+[12](12-gap-analysis.md) G-02 promotion).
 
 ## 7. Why not microservices / hexagonal-per-module? (summary; full reasoning in ADR-001)
 
