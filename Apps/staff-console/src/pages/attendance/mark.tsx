@@ -5,8 +5,8 @@ import { handleApiError } from '@/lib/error-handler';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Class, Student } from '@/types';
-import { CheckCircle2, Lock, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Student } from '@/types';
+import { Lock, ShieldCheck, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export default function MarkAttendance() {
   const [selectedClass, setSelectedClass] = React.useState<string>('');
@@ -27,8 +27,9 @@ export default function MarkAttendance() {
 
   const { data: classes } = useQuery<any>({
     queryKey: ['classes'],
-    queryFn: () => apiClient('/academic/classes'),
+    queryFn: () => apiClient('/classes'),
   });
+  const classesList = Array.isArray(classes) ? classes : (classes?.content || []);
 
   const { data: students, isLoading: loadingStudents } = useQuery<any>({
     queryKey: ['students-by-class', selectedClass],
@@ -105,9 +106,9 @@ export default function MarkAttendance() {
             className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
           >
             <option value="">Select a class...</option>
-            {classes?.content?.map((c: Class) => (
+            {classesList.map((c: any) => (
               <option key={c.id} value={c.id}>
-                {c.level} {c.stream}
+                {c.classLevelName || c.level || c.classLevelCode} {c.stream}
               </option>
             ))}
           </select>

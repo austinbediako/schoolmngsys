@@ -11,6 +11,7 @@ import com.drakalabs.schoolmngsys.academics.repository.SubjectRepository;
 import com.drakalabs.schoolmngsys.shared.audit.Audited;
 import com.drakalabs.schoolmngsys.shared.web.error.BusinessRuleViolationException;
 import com.drakalabs.schoolmngsys.shared.web.error.NotFoundException;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,15 @@ public class SubjectOfferingService {
         this.subjectRepository = subjectRepository;
         this.academicYearRepository = academicYearRepository;
         this.classSubjectOfferingRepository = classSubjectOfferingRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClassSubjectOfferingView> listOfferings(UUID classId, UUID academicYearId) {
+        return classSubjectOfferingRepository
+                .findBySchoolClassIdAndAcademicYearIdAndArchivedAtIsNull(classId, academicYearId)
+                .stream()
+                .map(ClassSubjectOfferingView::from)
+                .toList();
     }
 
     @Audited(action = "SUBJECT_OFFERING_CREATED", entityType = "ClassSubjectOffering")

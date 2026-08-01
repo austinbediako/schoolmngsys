@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api-client';
 import { handleApiError } from '@/lib/error-handler';
 import { toast } from 'sonner';
-import { Check, Plus, RefreshCw, CheckSquare, BookOpen, Layers, Filter } from 'lucide-react';
+import { Check, Plus, RefreshCw, CheckSquare, BookOpen, Layers, CheckCircle2 } from 'lucide-react';
 
 interface SubjectItem {
   id: string;
@@ -48,22 +48,17 @@ const SUBJECT_CATEGORIES: SubjectCategory[] = [
   },
 ];
 
-// Map class codes to default NaCCA curriculum subject codes (Zero duplicates)
 const DEFAULT_SUBJECTS_BY_LEVEL: Record<string, string[]> = {
-  // Early Childhood (Nursery 1-2, KG 1-2)
   N1: ['LIT', 'NUM', 'CART', 'OWOP'],
   N2: ['LIT', 'NUM', 'CART', 'OWOP'],
   KG1: ['LIT', 'NUM', 'CART', 'OWOP'],
   KG2: ['LIT', 'NUM', 'CART', 'OWOP'],
-  // Lower Primary (Basic 1-3)
   B1: ['ENG', 'MATH', 'SCI', 'GHL', 'CART', 'OWOP', 'RME', 'HIST', 'PE'],
   B2: ['ENG', 'MATH', 'SCI', 'GHL', 'CART', 'OWOP', 'RME', 'HIST', 'PE'],
   B3: ['ENG', 'MATH', 'SCI', 'GHL', 'CART', 'OWOP', 'RME', 'HIST', 'PE'],
-  // Upper Primary (Basic 4-6)
   B4: ['ENG', 'MATH', 'SCI', 'ICT', 'GHL', 'FRE', 'CART', 'OWOP', 'RME', 'HIST', 'PE'],
   B5: ['ENG', 'MATH', 'SCI', 'ICT', 'GHL', 'FRE', 'CART', 'OWOP', 'RME', 'HIST', 'PE'],
   B6: ['ENG', 'MATH', 'SCI', 'ICT', 'GHL', 'FRE', 'CART', 'OWOP', 'RME', 'HIST', 'PE'],
-  // Junior High School (Basic 7-9 / JHS 1-3)
   B7: ['ENG', 'MATH', 'ISCI', 'SOC', 'ICT', 'CTECH', 'CAD', 'GHL', 'FRE', 'RME', 'PE', 'ARAB'],
   B8: ['ENG', 'MATH', 'ISCI', 'SOC', 'ICT', 'CTECH', 'CAD', 'GHL', 'FRE', 'RME', 'PE', 'ARAB'],
   B9: ['ENG', 'MATH', 'ISCI', 'SOC', 'ICT', 'CTECH', 'CAD', 'GHL', 'FRE', 'RME', 'PE', 'ARAB'],
@@ -102,20 +97,38 @@ export default function ClassSubjects() {
     }
   }, [activeYear, selectedYearId]);
 
+  // Query existing offerings to identify already-assigned subjects
+  const { data: existingOfferings } = useQuery<any>({
+    queryKey: ['subject-offerings', classId, selectedYearId],
+    queryFn: () => apiClient(`/classes/${classId}/subject-offerings?academicYearId=${selectedYearId}`),
+    enabled: Boolean(classId && selectedYearId),
+  });
+  const existingList = Array.isArray(existingOfferings) ? existingOfferings : [];
+  const assignedSubjectIds = new Set(existingList.map((offering: any) => offering.subjectId));
+
   const classCode = cls?.classLevelCode || '';
   const defaultCodes = DEFAULT_SUBJECTS_BY_LEVEL[classCode] || [];
 
   const autoSelectDefaultSubjects = () => {
     if (defaultCodes.length === 0) return;
     const matchingIds = subjectsList
-      .filter((s) => defaultCodes.includes(s.code))
+      .filter((s) => defaultCodes.includes(s.code) && !assignedSubjectIds.has(s.id))
       .map((s) => s.id);
 
+    if (matchingIds.length === 0) {
+      toast.info(`All default NaCCA subjects are already assigned to ${cls?.classLevelName || classCode}`);
+      return;
+    }
+
     setSelectedSubjectIds(matchingIds);
-    toast.success(`Selected ${matchingIds.length} default NaCCA subjects for ${cls?.classLevelName || classCode}`);
+    toast.success(`Selected ${matchingIds.length} new default subjects for ${cls?.classLevelName || classCode}`);
   };
 
   const toggleSubject = (subjectId: string) => {
+    if (assignedSubjectIds.has(subjectId)) {
+      toast.info('This subject is already offered to this class for the selected academic year.');
+      return;
+    }
     setSelectedSubjectIds((prev) =>
       prev.includes(subjectId) ? prev.filter((id) => id !== subjectId) : [...prev, subjectId]
     );
@@ -123,7 +136,7 @@ export default function ClassSubjects() {
 
   const selectAllCategorySubjects = (categoryCodes: string[]) => {
     const matchingIds = subjectsList
-      .filter((s) => categoryCodes.includes(s.code))
+      .filter((s) => categoryCodes.includes(s.code) && !assignedSubjectIds.has(s.id))
       .map((s) => s.id);
     setSelectedSubjectIds((prev) => Array.from(new Set([...prev, ...matchingIds])));
   };
@@ -133,11 +146,20 @@ export default function ClassSubjects() {
       if (!selectedYearId) {
         throw new Error('Please select an active academic year');
       }
-      if (selectedSubjectIds.length === 0) {
-        throw new Error('Please select at least one subject to assign');
+
+      // Filter out already assigned subjects
+      const toAssign = selectedSubjectIds.filter((id) => !assignedSubjectIds.has(id));
+
+      if (toAssign.length === 0) {
+        toast.info('Selected subjects are already assigned to this class.');
+        setSelectedSubjectIds([]);
+        return;
       }
 
-      for (const subjectId of selectedSubjectIds) {
+      let successCount = 0;
+      let duplicateCount = 0;
+
+      for (const subjectId of toAssign) {
         try {
           await apiClient(`/classes/${classId}/subject-offerings`, {
             method: 'POST',
@@ -146,13 +168,25 @@ export default function ClassSubjects() {
               academicYearId: selectedYearId,
             }),
           });
-        } catch {
-          // Ignore duplicate assignment error responses
+          successCount++;
+        } catch (err: any) {
+          if (err?.status === 422 || err?.message?.includes('already offered')) {
+            duplicateCount++;
+          } else {
+            throw err;
+          }
         }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Assigned ${successCount} new subject(s) to ${cls?.classLevelName || 'Class'}`);
+      }
+      if (duplicateCount > 0) {
+        toast.warning(`${duplicateCount} subject(s) were already assigned and skipped.`);
       }
     },
     onSuccess: () => {
-      toast.success(`Assigned ${selectedSubjectIds.length} subjects to ${cls?.classLevelName || 'Class'}`);
+      queryClient.invalidateQueries({ queryKey: ['subject-offerings', classId, selectedYearId] });
       queryClient.invalidateQueries({ queryKey: ['classes'] });
       setSelectedSubjectIds([]);
     },
@@ -163,7 +197,7 @@ export default function ClassSubjects() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 animate-fade-in">
       <PageHeader
         title={`NaCCA Subject Offering — ${cls ? `${cls.classLevelName || cls.classLevelCode} ${cls.stream}` : 'Class'}`}
-        description="Configure curriculum subject offerings grouped by domain category with zero duplicates."
+        description="Configure curriculum subject offerings grouped by domain category with duplicate prevention."
         breadcrumbs={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Classes', href: '/academic/classes' },
@@ -212,8 +246,13 @@ export default function ClassSubjects() {
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
             <CheckSquare className="w-4 h-4 text-indigo-600" />
             <span>
-              {selectedSubjectIds.length} {selectedSubjectIds.length === 1 ? 'Subject' : 'Subjects'} Selected
+              {selectedSubjectIds.length} {selectedSubjectIds.length === 1 ? 'New Subject' : 'New Subjects'} Selected
             </span>
+            {assignedSubjectIds.size > 0 && (
+              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                {assignedSubjectIds.size} Already Offered
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -248,7 +287,7 @@ export default function ClassSubjects() {
         </div>
       </div>
 
-      {/* Categorized Subject Grid (Unique Subjects Only, No Duplicates) */}
+      {/* Categorized Subject Grid (Unique Subjects Only with Duplicate Badges) */}
       <div className="space-y-6">
         {SUBJECT_CATEGORIES.map((cat) => {
           const catSubjects = subjectsList.filter((s) => cat.subjectCodes.includes(s.code));
@@ -276,13 +315,14 @@ export default function ClassSubjects() {
                   onClick={() => selectAllCategorySubjects(cat.subjectCodes)}
                   className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
                 >
-                  Select All {cat.name}
+                  Select Unassigned {cat.name}
                 </button>
               </div>
 
               {/* Subject Badges Grid */}
               <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {catSubjects.map((s) => {
+                  const isAssigned = assignedSubjectIds.has(s.id);
                   const isSelected = selectedSubjectIds.includes(s.id);
                   const isDefaultForClass = defaultCodes.includes(s.code);
 
@@ -292,26 +332,34 @@ export default function ClassSubjects() {
                       type="button"
                       onClick={() => toggleSubject(s.id)}
                       className={`p-3 rounded-xl border text-left transition-all flex items-start justify-between gap-2 active:scale-98 ${
-                        isSelected
+                        isAssigned
+                          ? 'bg-emerald-50/60 border-emerald-300 text-emerald-950 font-bold cursor-default'
+                          : isSelected
                           ? 'bg-indigo-50/80 border-indigo-500 text-indigo-950 shadow-2xs font-bold'
                           : 'bg-white border-slate-200/90 text-slate-700 hover:border-slate-300 hover:bg-slate-50 font-semibold'
                       }`}
                     >
                       <div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs">{s.name}</span>
-                          {isDefaultForClass && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                          {isAssigned ? (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-0.5">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Offered
+                            </span>
+                          ) : isDefaultForClass ? (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-100 text-blue-800">
                               Default
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <div className="text-[10px] font-mono text-slate-400 mt-0.5">Code: {s.code}</div>
                       </div>
 
                       <div
                         className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
-                          isSelected
+                          isAssigned
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : isSelected
                             ? 'bg-indigo-600 border-indigo-600 text-white'
                             : 'border-slate-300 bg-white text-transparent'
                         }`}
