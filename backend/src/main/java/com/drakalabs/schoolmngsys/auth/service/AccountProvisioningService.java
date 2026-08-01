@@ -90,6 +90,14 @@ public class AccountProvisioningService {
         return AccountView.from(account);
     }
 
+    @Audited(action = "ACCOUNT_REACTIVATED", entityType = "Account")
+    @Transactional
+    public AccountView reactivateAccount(UUID accountId) {
+        Account account = getAccount(accountId);
+        account.reactivate();
+        return AccountView.from(accountRepository.save(account));
+    }
+
     private Account getAccount(UUID accountId) {
         return accountRepository
                 .findById(accountId)

@@ -109,6 +109,15 @@ export default function AdminAccounts() {
     onError: (error) => handleApiError(error),
   });
 
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => apiClient(`/accounts/${id}/reactivate`, { method: 'POST' }),
+    onSuccess: () => {
+      toast.success('Account reactivated');
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+    onError: (error) => handleApiError(error),
+  });
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 animate-fade-in">
       <PageHeader
@@ -247,13 +256,21 @@ export default function AdminAccounts() {
                   </td>
 
                   <td className="px-5 py-3.5 text-right">
-                    {a.status === 'ACTIVE' && (
+                    {a.status === 'ACTIVE' ? (
                       <button
                         onClick={() => deactivateMutation.mutate(a.id)}
                         disabled={deactivateMutation.isPending}
                         className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline disabled:opacity-50"
                       >
                         Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => reactivateMutation.mutate(a.id)}
+                        disabled={reactivateMutation.isPending}
+                        className="text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline disabled:opacity-50"
+                      >
+                        Reactivate
                       </button>
                     )}
                   </td>

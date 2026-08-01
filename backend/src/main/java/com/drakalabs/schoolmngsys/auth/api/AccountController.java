@@ -54,6 +54,12 @@ public class AccountController {
         return AccountResponse.from(accountProvisioningService.deactivateAccount(id));
     }
 
+    @PostMapping("/{id}/reactivate")
+    @PreAuthorize("hasAuthority('ACCOUNT_UPDATE')")
+    public AccountResponse reactivate(@PathVariable UUID id) {
+        return AccountResponse.from(accountProvisioningService.reactivateAccount(id));
+    }
+
     @PostMapping("/{id}/roles")
     @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
     public AccountResponse assignRole(@PathVariable UUID id, @RequestBody @Valid AssignRoleRequest request) {

@@ -135,4 +135,10 @@ public class Account extends BaseEntity {
     public void deactivate() {
         this.status = AccountStatus.DEACTIVATED;
     }
+
+    public void reactivate() {
+        this.status = AccountStatus.ACTIVE;
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+    }
 }

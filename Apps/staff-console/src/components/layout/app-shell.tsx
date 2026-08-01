@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Link, Redirect, useLocation } from 'wouter';
 import { Icon } from '@/components/icon';
 import { apiClient } from '@/lib/api-client';
-import { Student, PaginatedResponse } from '@/types';
+import { Student } from '@/types';
 import { Search, LogOut, Menu, User, X, ChevronRight } from 'lucide-react';
 
 const navigation = [
@@ -76,7 +76,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Redirect to="/login" />;
 
-  const navItems = navigation.filter(item => !item.perm || hasPermission(item.perm));
+  const navItems = navigation.filter((item) => !item.perm || hasPermission(item.perm));
+  const userRolesDisplay = user.roles ? user.roles.map(r => r.replace(/_/g, ' ')).join(' • ') : (user.role || 'Staff');
 
   const handleSelectStudent = (studentId: string) => {
     setSearchOpen(false);
@@ -108,7 +109,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Unibridge Basic
               </span>
               <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                2024-25 | Term 1
+                UBS-LMIS System
               </span>
             </div>
           </Link>
@@ -128,7 +129,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </kbd>
           </button>
 
-
           <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 
           {/* User Profile */}
@@ -137,8 +137,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span className="text-xs font-semibold text-slate-900 leading-tight">
                 {user.firstName} {user.lastName}
               </span>
-              <span className="text-[10px] text-slate-500 font-medium">
-                {user.role}
+              <span className="text-[10px] text-slate-500 font-medium capitalize">
+                {userRolesDisplay}
               </span>
             </div>
 
